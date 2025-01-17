@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-16T21:42:32-03:00",
+  "files": {
+    "video.mp4": {
+      "version": "1.0.0",
+      "hash": "initial"
+    },
+    "index.html": {
+      "version": "1.0.0",
+      "hash": "initial"
+    }
+  }
+}
