@@ -4,13 +4,16 @@ Wants=network-online.target
 After=network-online.target
 After=graphical.target
 After=multi-user.target
+After=lightdm.service
+Requires=lightdm.service
 
 [Service]
 Type=simple
 User=pi
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
-ExecStartPre=/bin/sleep 10
+ExecStartPre=/bin/bash -c 'until [ -e /tmp/.X11-unix/X0 ]; do sleep 1; done'
+ExecStartPre=/bin/sleep 5
 ExecStartPre=/bin/mkdir -p /var/www/kiosk
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 Restart=always

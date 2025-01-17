@@ -13,6 +13,20 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
+# Function to check if X server is running
+check_x_server() {
+    for i in {1..30}; do
+        if xset -q > /dev/null 2>&1; then
+            log "X server is running"
+            return 0
+        fi
+        log "Waiting for X server... attempt $i"
+        sleep 1
+    done
+    log "X server not found after 30 seconds"
+    return 1
+}
+
 # Function to start HTTP server
 start_http_server() {
     cd "$PLAYER_DIR"
@@ -27,6 +41,7 @@ start_chromium() {
     # Wait for HTTP server to start
     sleep 5
     export DISPLAY=:0
+    export XAUTHORITY=/home/pi/.Xauthority
     
     log "Starting Chromium browser"
     
@@ -57,6 +72,13 @@ touch "$LOG_FILE"
 chown pi:pi "$LOG_FILE"
 
 log "Starting kiosk script"
+
+# Wait for X server
+log "Checking X server..."
+check_x_server || {
+    log "Failed to detect X server"
+    exit 1
+}
 
 # Kill existing processes if they exist
 if [ -f /tmp/kiosk-http.pid ]; then
