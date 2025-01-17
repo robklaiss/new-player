@@ -20,7 +20,7 @@ raspberry-files/
 1. Install system dependencies:
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3-pip chromium-browser
+sudo apt-get install -y python3-pip chromium-browser unclutter x11-xserver-utils
 ```
 
 2. Create the web directory and copy files:

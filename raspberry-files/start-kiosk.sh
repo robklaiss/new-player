@@ -16,18 +16,25 @@ start_chromium() {
     # Wait for HTTP server to start
     sleep 2
     export DISPLAY=:0
+    
+    # Hide cursor
+    unclutter -idle 0.5 -root &
+    
+    # Start Chromium in full kiosk mode
     chromium-browser \
-        --kiosk \
-        --start-fullscreen \
-        --disable-restore-session-state \
         --noerrdialogs \
-        --disable-session-crashed-bubble \
         --disable-infobars \
+        --disable-translate \
         --disable-features=TranslateUI \
+        --disable-session-crashed-bubble \
         --disable-component-update \
-        --autoplay-policy=no-user-gesture-required \
+        --disable-pinch \
+        --overscroll-history-navigation=0 \
+        --disable-features=TouchpadOverscrollHistoryNavigation \
         --check-for-update-interval=31536000 \
-        "http://localhost:$HTTP_PORT" &
+        --kiosk \
+        --app=http://localhost:$HTTP_PORT &
+    
     echo $! > /tmp/kiosk-chromium.pid
 }
 
@@ -35,6 +42,7 @@ start_chromium() {
 if [ -f /tmp/kiosk-http.pid ]; then
     kill $(cat /tmp/kiosk-http.pid) 2>/dev/null
 fi
+
 if [ -f /tmp/kiosk-chromium.pid ]; then
     kill $(cat /tmp/kiosk-chromium.pid) 2>/dev/null
 fi
@@ -44,7 +52,10 @@ xset -display :0 s off
 xset -display :0 s noblank
 xset -display :0 dpms 0 0 0
 
-# Start services
+# Make sure we're in kiosk directory
+cd "$PLAYER_DIR"
+
+# Start the services
 start_http_server
 start_chromium
 

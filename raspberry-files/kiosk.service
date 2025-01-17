@@ -8,7 +8,7 @@ Type=simple
 User=pi
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
-ExecStart=/bin/bash /System/Volumes/Data/Proyectos Temp/infoactive 2024/new-player/start-kiosk.sh
+ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 Restart=always
 RestartSec=3
 
