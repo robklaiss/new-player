@@ -49,6 +49,95 @@ sudo systemctl enable kiosk.service monitor.service
 sudo systemctl start kiosk.service monitor.service
 ```
 
+## Kiosk Player Installation
+
+### Initial Setup
+
+1. Configure Raspberry Pi to boot to desktop:
+```bash
+sudo raspi-config
+```
+Navigate to:
+- System Options
+- Boot / Auto Login
+- Select "Desktop Autologin"
+
+2. Install required packages:
+```bash
+sudo apt update
+sudo apt install -y chromium-browser unclutter xserver-xorg x11-xserver-utils python3-flask python3-requests
+```
+
+3. Set up the kiosk:
+```bash
+# Clone the repository
+cd /var/www
+sudo git clone https://github.com/robklaiss/new-player.git kiosk
+
+# Copy and set up service files
+sudo cp /var/www/kiosk/raspberry-files/kiosk.service /etc/systemd/system/
+sudo chmod +x /var/www/kiosk/raspberry-files/start-kiosk.sh
+sudo cp /var/www/kiosk/raspberry-files/start-kiosk.sh /var/www/kiosk/
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable kiosk.service
+sudo systemctl start kiosk.service
+```
+
+## Troubleshooting
+
+If the system boots to CLI instead of desktop:
+
+1. Check boot configuration:
+```bash
+sudo raspi-config
+```
+Ensure "Desktop Autologin" is selected under System Options > Boot / Auto Login
+
+2. Verify X server is installed and running:
+```bash
+sudo apt install --reinstall xserver-xorg xserver-xorg-core
+sudo apt install --reinstall raspberrypi-ui-mods
+```
+
+3. Check service status:
+```bash
+sudo systemctl status kiosk.service
+sudo tail -f /var/log/kiosk.log
+```
+
+4. Check permissions:
+```bash
+sudo chown -R pi:pi /var/www/kiosk
+sudo usermod -a -G video pi
+ls -l /home/pi/.Xauthority  # Should be owned by pi:pi
+```
+
+5. If issues persist, try:
+```bash
+# Restart the display manager
+sudo systemctl restart lightdm
+
+# Enable the service again
+sudo systemctl enable kiosk.service
+
+# Check if display is set
+echo $DISPLAY  # Should show :0
+
+# Test X server
+DISPLAY=:0 xset q
+```
+
+## Updating
+
+To update the kiosk player:
+```bash
+cd /var/www/kiosk
+sudo git pull
+sudo systemctl restart kiosk.service
+```
+
 ## Monitoring
 
 You can check the status of the services using:
