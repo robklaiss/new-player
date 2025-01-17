@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-Environment=BACKEND_URL=http://YOUR_LOCAL_IP:8080/api
+Environment=BACKEND_URL=https://vinculo.com.py/new-player/api
 ExecStart=/usr/bin/python3 /var/www/kiosk/device_monitor.py
 Restart=always
 RestartSec=3
