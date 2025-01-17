@@ -94,7 +94,13 @@ self.addEventListener('fetch', event => {
         return new Response('Network error', { status: 500 });
       }
     })()
-  );
+backend-deploy/
+├── main.py              # Main server application
+├── requirements.txt     # Dependencies
+├── README.md           # Deployment instructions
+├── files/              # Empty folder for uploaded content
+└── static/             # Web interface
+    └── index.html      # Management dashboard  );
 });
 
 // Clean up old caches
