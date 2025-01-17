@@ -20,12 +20,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Get the application directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Configure paths
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+FILES_DIR = os.path.join(BASE_DIR, "files")
+DB_PATH = os.path.join(BASE_DIR, "devices.db")
+
+# Create directories if they don't exist
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(FILES_DIR, exist_ok=True)
+
 # Serve static files
-app.mount("/files", StaticFiles(directory="files"), name="files")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/files", StaticFiles(directory=FILES_DIR), name="files")
 
 # Database initialization
 def init_db():
-    conn = sqlite3.connect('devices.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS devices (
@@ -51,7 +64,7 @@ class UpdateResponse(BaseModel):
 
 @app.post("/api/ping")
 async def ping(data: PingData):
-    conn = sqlite3.connect('devices.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
     # Update device info
@@ -67,11 +80,10 @@ async def ping(data: PingData):
     
     # Check for updates
     updates = []
-    content_dir = "files"
     device_files = data.content_info
     
-    for filename in os.listdir(content_dir):
-        file_path = os.path.join(content_dir, filename)
+    for filename in os.listdir(FILES_DIR):
+        file_path = os.path.join(FILES_DIR, filename)
         if os.path.isfile(file_path):
             # If file doesn't exist on device or has different size
             if filename not in device_files:
@@ -87,7 +99,7 @@ async def ping(data: PingData):
 
 @app.get("/api/devices")
 async def get_devices():
-    conn = sqlite3.connect('devices.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('SELECT * FROM devices')
     devices = []
@@ -104,7 +116,7 @@ async def get_devices():
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        file_path = os.path.join("files", file.filename)
+        file_path = os.path.join(FILES_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         return {"filename": file.filename}
