@@ -7,6 +7,7 @@ set -e
 PLAYER_DIR="/var/www/kiosk"
 HTTP_PORT=8000
 LOG_FILE="/var/log/kiosk.log"
+CURRENT_USER=$(whoami)
 
 # Logging function
 log() {
@@ -37,7 +38,7 @@ start_chromium() {
     # Wait for HTTP server to start
     sleep 5
     export DISPLAY=:0
-    export XAUTHORITY=/home/pi/.Xauthority
+    export XAUTHORITY=/home/$CURRENT_USER/.Xauthority
     
     log "Starting Chromium browser"
     
@@ -65,7 +66,7 @@ start_chromium() {
 
 # Create log file if it doesn't exist
 touch "$LOG_FILE"
-chown pi:pi "$LOG_FILE"
+chown $CURRENT_USER:$CURRENT_USER "$LOG_FILE"
 
 log "Starting kiosk script"
 
