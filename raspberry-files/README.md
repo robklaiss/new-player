@@ -53,24 +53,26 @@ sudo systemctl start kiosk.service monitor.service
 
 ### Quick Installation
 
-The fastest way to install is using our installation script:
+Run this command to install everything:
 
 ```bash
-# Download and run the installation script
-curl -sSL https://raw.githubusercontent.com/robklaiss/new-player/main/raspberry-files/install.sh | sudo bash
+cd /tmp && mkdir -p kiosk-install && cd kiosk-install && sudo git clone https://github.com/robklaiss/new-player.git && sudo bash new-player/raspberry-files/install.sh
 ```
 
-Or if you prefer to download first and then run:
+Or if you prefer step by step:
 
 ```bash
-# Download the script
-wget https://raw.githubusercontent.com/robklaiss/new-player/main/raspberry-files/install.sh
+# Create a temporary directory
+cd /tmp
+mkdir kiosk-install
+cd kiosk-install
 
-# Make it executable
-chmod +x install.sh
+# Clone the repository
+sudo git clone https://github.com/robklaiss/new-player.git
+cd new-player
 
-# Run it
-sudo ./install.sh
+# Run the installation script
+sudo bash raspberry-files/install.sh
 ```
 
 The script will:
