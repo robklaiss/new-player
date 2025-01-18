@@ -51,6 +51,36 @@ sudo systemctl start kiosk.service monitor.service
 
 ## Kiosk Player Installation
 
+### Quick Installation
+
+The fastest way to install is using our installation script:
+
+```bash
+# Download and run the installation script
+curl -sSL https://raw.githubusercontent.com/robklaiss/new-player/main/raspberry-files/install.sh | sudo bash
+```
+
+Or if you prefer to download first and then run:
+
+```bash
+# Download the script
+wget https://raw.githubusercontent.com/robklaiss/new-player/main/raspberry-files/install.sh
+
+# Make it executable
+chmod +x install.sh
+
+# Run it
+sudo ./install.sh
+```
+
+The script will:
+1. Install all required packages
+2. Set up the display manager
+3. Clone the repository
+4. Configure the services
+5. Set appropriate permissions
+6. Start the kiosk
+
 ### Initial Setup
 
 1. Configure Raspberry Pi to boot to desktop:
