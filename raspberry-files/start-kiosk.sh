@@ -52,28 +52,55 @@ start_http_server() {
 start_browser() {
     export DISPLAY=:0
     export XAUTHORITY=/home/infoactive/.Xauthority
-    export GDK_SCALE=1
-    export GDK_DPI_SCALE=1
+    export MOZ_USE_XINPUT2=1
     
-    log "Starting Epiphany browser"
+    log "Starting Firefox browser"
     debug "Display: $DISPLAY"
     debug "Xauthority: $XAUTHORITY"
     
-    # Create fresh profile
-    rm -rf /var/www/kiosk/.epiphany
-    mkdir -p /var/www/kiosk/.epiphany
-    chown -R infoactive:infoactive /var/www/kiosk/.epiphany
+    # Create Firefox profile directory if it doesn't exist
+    FIREFOX_PROFILE_DIR="/var/www/kiosk/.firefox"
+    rm -rf "$FIREFOX_PROFILE_DIR"
+    mkdir -p "$FIREFOX_PROFILE_DIR"
+    
+    # Create Firefox preferences
+    cat > "$FIREFOX_PROFILE_DIR/user.js" << EOL
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.sessionstore.enabled", false);
+user_pref("browser.sessionstore.resume_session_once", false);
+user_pref("browser.cache.disk.enable", false);
+user_pref("browser.cache.memory.enable", true);
+user_pref("browser.cache.memory.capacity", 16384);
+user_pref("browser.rights.3.shown", true);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("browser.tabs.warnOnCloseOtherTabs", false);
+user_pref("browser.tabs.warnOnOpen", false);
+user_pref("browser.privatebrowsing.autostart", true);
+user_pref("extensions.update.enabled", false);
+user_pref("browser.download.manager.retention", 0);
+user_pref("browser.download.manager.showWhenStarting", false);
+user_pref("browser.helperApps.neverAsk.saveToDisk", "video/mp4");
+user_pref("browser.link.open_newwindow", 1);
+user_pref("browser.link.open_newwindow.restriction", 0);
+user_pref("dom.disable_window_flip", true);
+user_pref("dom.disable_window_move_resize", true);
+user_pref("dom.event.contextmenu.enabled", false);
+EOL
+
+    chown -R infoactive:infoactive "$FIREFOX_PROFILE_DIR"
     
     # Hide cursor
     unclutter -idle 0.5 -root &
     
-    # Start Epiphany with debugging
-    epiphany-browser \
-        --profile=/var/www/kiosk/.epiphany \
-        --application-mode \
-        --incognito \
-        "http://localhost:$HTTP_PORT" \
-        --display=:0 2>&1 &
+    # Start Firefox in kiosk mode
+    firefox \
+        --profile "$FIREFOX_PROFILE_DIR" \
+        --kiosk \
+        --no-remote \
+        --private-window \
+        "http://localhost:$HTTP_PORT" &
     
     local pid=$!
     echo $pid > /tmp/kiosk-browser.pid
@@ -86,7 +113,7 @@ start_browser() {
         return 1
     fi
     
-    log "Epiphany started with PID $pid"
+    log "Firefox started with PID $pid"
     return 0
 }
 
@@ -94,8 +121,9 @@ log "Starting kiosk script"
 
 # Kill existing processes
 pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill -f "epiphany-browser.*$HTTP_PORT" || true
-killall -9 epiphany-browser 2>/dev/null || true
+pkill -f "firefox.*$HTTP_PORT" || true
+killall -9 firefox 2>/dev/null || true
+killall -9 firefox-esr 2>/dev/null || true
 killall -9 unclutter 2>/dev/null || true
 
 # Clean up PID files
@@ -137,8 +165,9 @@ while true; do
     # Check browser
     if [ ! -f /tmp/kiosk-browser.pid ] || ! ps -p $(cat /tmp/kiosk-browser.pid 2>/dev/null) > /dev/null 2>&1; then
         log "Browser died or PID file missing, restarting..."
-        pkill -f "epiphany-browser.*$HTTP_PORT" || true
-        killall -9 epiphany-browser 2>/dev/null || true
+        pkill -f "firefox.*$HTTP_PORT" || true
+        killall -9 firefox 2>/dev/null || true
+        killall -9 firefox-esr 2>/dev/null || true
         killall -9 unclutter 2>/dev/null || true
         
         # Try to start browser up to 3 times
