@@ -33,46 +33,23 @@ start_http_server() {
     log "HTTP server started with PID $(cat /tmp/kiosk-http.pid)"
 }
 
-# Function to start Chromium in kiosk mode
-start_chromium() {
+# Function to start Midori in kiosk mode
+start_browser() {
     # Wait for HTTP server to start
     sleep 5
     export DISPLAY=:0
     export XAUTHORITY=/home/$CURRENT_USER/.Xauthority
     
-    log "Starting Chromium browser"
+    log "Starting Midori browser"
     
     # Hide cursor
     unclutter -idle 0.5 -root &
     
-    # Start Chromium in full kiosk mode with stability flags
-    chromium-browser \
-        --noerrdialogs \
-        --disable-infobars \
-        --disable-translate \
-        --disable-features=TranslateUI \
-        --disable-session-crashed-bubble \
-        --disable-component-update \
-        --disable-pinch \
-        --disable-gpu \
-        --disable-software-rasterizer \
-        --disable-dev-shm-usage \
-        --no-sandbox \
-        --ignore-gpu-blocklist \
-        --enable-gpu-rasterization \
-        --test-type \
-        --start-maximized \
-        --memory-model=low \
-        --disk-cache-size=1 \
-        --media-cache-size=1 \
-        --overscroll-history-navigation=0 \
-        --disable-features=TouchpadOverscrollHistoryNavigation \
-        --check-for-update-interval=31536000 \
-        --kiosk \
-        --app=http://localhost:$HTTP_PORT &
+    # Start Midori in full kiosk mode
+    midori -e Fullscreen -a "http://localhost:$HTTP_PORT" &
     
-    echo $! > /tmp/kiosk-chromium.pid
-    log "Chromium started with PID $(cat /tmp/kiosk-chromium.pid)"
+    echo $! > /tmp/kiosk-browser.pid
+    log "Midori started with PID $(cat /tmp/kiosk-browser.pid)"
 }
 
 # Create log file if it doesn't exist
@@ -88,15 +65,15 @@ if [ -f /tmp/kiosk-http.pid ]; then
     rm -f /tmp/kiosk-http.pid
 fi
 
-if [ -f /tmp/kiosk-chromium.pid ]; then
-    log "Killing existing Chromium instance"
-    kill $(cat /tmp/kiosk-chromium.pid) 2>/dev/null || true
-    killall -9 chromium-browser 2>/dev/null || true
-    rm -f /tmp/kiosk-chromium.pid
+if [ -f /tmp/kiosk-browser.pid ]; then
+    log "Killing existing browser instance"
+    kill $(cat /tmp/kiosk-browser.pid) 2>/dev/null || true
+    killall -9 midori 2>/dev/null || true
+    rm -f /tmp/kiosk-browser.pid
 fi
 
 # Clean up any zombie processes
-killall -9 chromium-browser 2>/dev/null || true
+killall -9 midori 2>/dev/null || true
 killall -9 python3 2>/dev/null || true
 
 # Make sure the display is on
@@ -113,7 +90,7 @@ cd "$PLAYER_DIR" || {
 
 # Start the services
 start_http_server
-start_chromium
+start_browser
 
 log "Initial services started"
 
@@ -124,10 +101,10 @@ while true; do
         start_http_server
     fi
     
-    if [ ! -f /tmp/kiosk-chromium.pid ] || ! ps -p $(cat /tmp/kiosk-chromium.pid 2>/dev/null) > /dev/null 2>&1; then
-        log "Chromium died or PID file missing, restarting..."
-        killall -9 chromium-browser 2>/dev/null || true
-        start_chromium
+    if [ ! -f /tmp/kiosk-browser.pid ] || ! ps -p $(cat /tmp/kiosk-browser.pid 2>/dev/null) > /dev/null 2>&1; then
+        log "Browser died or PID file missing, restarting..."
+        killall -9 midori 2>/dev/null || true
+        start_browser
     fi
     
     sleep 10
