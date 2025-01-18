@@ -51,12 +51,40 @@ sudo systemctl start kiosk.service monitor.service
 
 ## Kiosk Player Installation
 
-### Quick Installation
+### Repository Access Setup
 
-Run this command to install everything:
+Since this is a private repository, you'll need to set up access before installation. There are two options:
+
+### Option 1: SSH Key (Recommended)
+
+1. Generate an SSH key on your Raspberry Pi:
+```bash
+sudo -u pi ssh-keygen -t ed25519 -C "raspberry-kiosk"
+```
+
+2. Display the public key:
+```bash
+sudo -u pi cat /home/pi/.ssh/id_ed25519.pub
+```
+
+3. Add the key to GitHub:
+   - Go to the repository settings
+   - Navigate to "Deploy keys"
+   - Click "Add deploy key"
+   - Paste the key and give it a name (e.g., "Raspberry Pi Kiosk")
+   - Check "Allow write access" if needed
+   - Click "Add key"
+
+### Option 2: Make Repository Public (Temporary)
+
+If you prefer, you can temporarily make the repository public for installation. Remember to make it private again after setup.
+
+## Quick Installation
+
+After setting up access, run this command to install everything:
 
 ```bash
-cd /var/www && sudo git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk && sudo bash kiosk/raspberry-files/install.sh
+cd /var/www && sudo git clone --depth 1 git@github.com:robklaiss/new-player.git kiosk && sudo bash kiosk/raspberry-files/install.sh
 ```
 
 Or if you prefer step by step:
@@ -64,7 +92,7 @@ Or if you prefer step by step:
 ```bash
 # Clone the repository
 cd /var/www
-sudo git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk
+sudo git clone --depth 1 git@github.com:robklaiss/new-player.git kiosk
 
 # Run the installation script
 cd kiosk
