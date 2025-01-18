@@ -1,17 +1,21 @@
 #!/bin/bash
 
-# Enable error handling
-set -e
-
 # Directory of the player
 PLAYER_DIR="/var/www/kiosk"
 HTTP_PORT=8000
 LOG_FILE="/var/log/kiosk.log"
-CURRENT_USER=$(whoami)
 
 # Logging function
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+# Debug function
+debug() {
+    log "DEBUG: $1"
+    if [ -n "$2" ]; then
+        log "DEBUG: Command output: $2"
+    fi
 }
 
 # Wait for X server
@@ -29,52 +33,73 @@ start_http_server() {
     cd "$PLAYER_DIR"
     log "Starting HTTP server on port $HTTP_PORT"
     python3 -m http.server $HTTP_PORT &
-    echo $! > /tmp/kiosk-http.pid
-    log "HTTP server started with PID $(cat /tmp/kiosk-http.pid)"
+    local pid=$!
+    echo $pid > /tmp/kiosk-http.pid
+    debug "HTTP server PID: $pid"
+    
+    # Wait for server to be ready
+    for i in {1..10}; do
+        if curl -s http://localhost:$HTTP_PORT > /dev/null; then
+            log "HTTP server is responding"
+            return 0
+        fi
+        sleep 1
+    done
+    log "Warning: HTTP server not responding after 10 seconds"
 }
 
 # Function to start browser in kiosk mode
 start_browser() {
-    # Wait for HTTP server to start
-    sleep 5
     export DISPLAY=:0
-    export XAUTHORITY=/home/$CURRENT_USER/.Xauthority
+    export XAUTHORITY=/home/infoactive/.Xauthority
+    export GDK_SCALE=1
+    export GDK_DPI_SCALE=1
     
     log "Starting Epiphany browser"
+    debug "Display: $DISPLAY"
+    debug "Xauthority: $XAUTHORITY"
+    
+    # Create fresh profile
+    rm -rf /var/www/kiosk/.epiphany
+    mkdir -p /var/www/kiosk/.epiphany
+    chown -R infoactive:infoactive /var/www/kiosk/.epiphany
     
     # Hide cursor
     unclutter -idle 0.5 -root &
     
-    # Start Epiphany in full kiosk mode
-    epiphany-browser -a --profile=/var/www/kiosk/.epiphany "http://localhost:$HTTP_PORT" --display=:0 &
+    # Start Epiphany with debugging
+    epiphany-browser \
+        --profile=/var/www/kiosk/.epiphany \
+        --application-mode \
+        --incognito \
+        "http://localhost:$HTTP_PORT" \
+        --display=:0 2>&1 &
     
-    echo $! > /tmp/kiosk-browser.pid
-    log "Epiphany started with PID $(cat /tmp/kiosk-browser.pid)"
+    local pid=$!
+    echo $pid > /tmp/kiosk-browser.pid
+    debug "Browser PID: $pid"
+    
+    # Wait to see if browser stays running
+    sleep 5
+    if ! ps -p $pid > /dev/null; then
+        log "Browser failed to start properly"
+        return 1
+    fi
+    
+    log "Epiphany started with PID $pid"
+    return 0
 }
-
-# Create log file if it doesn't exist
-touch "$LOG_FILE"
-chown $CURRENT_USER:$CURRENT_USER "$LOG_FILE"
 
 log "Starting kiosk script"
 
-# Kill existing processes if they exist
-if [ -f /tmp/kiosk-http.pid ]; then
-    log "Killing existing HTTP server"
-    kill $(cat /tmp/kiosk-http.pid) 2>/dev/null || true
-    rm -f /tmp/kiosk-http.pid
-fi
-
-if [ -f /tmp/kiosk-browser.pid ]; then
-    log "Killing existing browser instance"
-    kill $(cat /tmp/kiosk-browser.pid) 2>/dev/null || true
-    killall -9 epiphany-browser 2>/dev/null || true
-    rm -f /tmp/kiosk-browser.pid
-fi
-
-# Clean up any zombie processes
+# Kill existing processes
+pkill -f "python3 -m http.server $HTTP_PORT" || true
+pkill -f "epiphany-browser.*$HTTP_PORT" || true
 killall -9 epiphany-browser 2>/dev/null || true
-killall -9 python3 2>/dev/null || true
+killall -9 unclutter 2>/dev/null || true
+
+# Clean up PID files
+rm -f /tmp/kiosk-http.pid /tmp/kiosk-browser.pid
 
 # Make sure the display is on
 log "Configuring display settings"
@@ -82,33 +107,48 @@ xset -display :0 s off || log "Failed to disable screen saver"
 xset -display :0 s noblank || log "Failed to disable screen blanking"
 xset -display :0 dpms 0 0 0 || log "Failed to disable DPMS"
 
-# Create browser profile directory if it doesn't exist
-mkdir -p /var/www/kiosk/.epiphany
-chown -R $CURRENT_USER:$CURRENT_USER /var/www/kiosk/.epiphany
-
-# Make sure we're in kiosk directory
-cd "$PLAYER_DIR" || {
-    log "Failed to change to $PLAYER_DIR directory"
-    exit 1
-}
-
 # Start the services
 start_http_server
-start_browser
+
+# Wait for HTTP server to be ready
+sleep 5
+
+# Try to start browser up to 3 times
+for attempt in {1..3}; do
+    log "Browser start attempt $attempt"
+    if start_browser; then
+        break
+    fi
+    sleep 5
+done
 
 log "Initial services started"
 
 # Monitor and restart if needed
 while true; do
+    # Check HTTP server
     if [ ! -f /tmp/kiosk-http.pid ] || ! ps -p $(cat /tmp/kiosk-http.pid 2>/dev/null) > /dev/null 2>&1; then
         log "HTTP server died or PID file missing, restarting..."
+        pkill -f "python3 -m http.server $HTTP_PORT" || true
         start_http_server
+        sleep 5
     fi
     
+    # Check browser
     if [ ! -f /tmp/kiosk-browser.pid ] || ! ps -p $(cat /tmp/kiosk-browser.pid 2>/dev/null) > /dev/null 2>&1; then
         log "Browser died or PID file missing, restarting..."
+        pkill -f "epiphany-browser.*$HTTP_PORT" || true
         killall -9 epiphany-browser 2>/dev/null || true
-        start_browser
+        killall -9 unclutter 2>/dev/null || true
+        
+        # Try to start browser up to 3 times
+        for attempt in {1..3}; do
+            log "Browser restart attempt $attempt"
+            if start_browser; then
+                break
+            fi
+            sleep 5
+        done
     fi
     
     sleep 10
