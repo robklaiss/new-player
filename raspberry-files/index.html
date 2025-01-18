@@ -19,8 +19,21 @@
       height: 100%;
       object-fit: cover;
     }
+    .error-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      display: none;
+      text-align: center;
+    }
   </style>
   <script>
+    // Handle service worker registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('service-worker.js')
@@ -28,16 +41,73 @@
             console.log('ServiceWorker registration successful');
           })
           .catch(err => {
-            console.log('ServiceWorker registration failed: ', err);
+            console.error('ServiceWorker registration failed: ', err);
+            showError('Failed to initialize offline support');
           });
+
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data.type === 'UPDATE_AVAILABLE') {
+            console.log('Update available, reloading...');
+            window.location.reload();
+          }
+        });
       });
     }
+
+    // Video error handling
+    function handleVideoError(error) {
+      console.error('Video error:', error);
+      showError('Video playback error. Retrying...');
+      
+      // Try to reload the video after a delay
+      setTimeout(() => {
+        const video = document.querySelector('video');
+        video.load();
+        video.play().catch(handleVideoError);
+      }, 5000);
+    }
+
+    // Show error message
+    function showError(message) {
+      const errorDiv = document.querySelector('.error-message');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      
+      // Hide error after 10 seconds
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 10000);
+    }
+
+    // Initialize video player
+    window.addEventListener('load', () => {
+      const video = document.querySelector('video');
+      
+      video.addEventListener('error', (e) => handleVideoError(e));
+      
+      video.play().catch(handleVideoError);
+
+      // Handle video end
+      video.addEventListener('ended', () => {
+        video.play().catch(handleVideoError);
+      });
+
+      // Check video playing status periodically
+      setInterval(() => {
+        if (video.paused && !video.ended) {
+          console.log('Video paused unexpectedly, attempting to resume...');
+          video.play().catch(handleVideoError);
+        }
+      }, 5000);
+    });
   </script>
 </head>
 <body>
-  <video autoplay muted loop>
+  <video autoplay muted loop playsinline>
     <source src="video.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
+  <div class="error-message"></div>
 </body>
 </html>
