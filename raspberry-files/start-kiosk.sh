@@ -33,23 +33,23 @@ start_http_server() {
     log "HTTP server started with PID $(cat /tmp/kiosk-http.pid)"
 }
 
-# Function to start Midori in kiosk mode
+# Function to start browser in kiosk mode
 start_browser() {
     # Wait for HTTP server to start
     sleep 5
     export DISPLAY=:0
     export XAUTHORITY=/home/$CURRENT_USER/.Xauthority
     
-    log "Starting Midori browser"
+    log "Starting Epiphany browser"
     
     # Hide cursor
     unclutter -idle 0.5 -root &
     
-    # Start Midori in full kiosk mode
-    midori -e Fullscreen -a "http://localhost:$HTTP_PORT" &
+    # Start Epiphany in full kiosk mode
+    epiphany-browser -a --profile=/var/www/kiosk/.epiphany "http://localhost:$HTTP_PORT" --display=:0 &
     
     echo $! > /tmp/kiosk-browser.pid
-    log "Midori started with PID $(cat /tmp/kiosk-browser.pid)"
+    log "Epiphany started with PID $(cat /tmp/kiosk-browser.pid)"
 }
 
 # Create log file if it doesn't exist
@@ -68,12 +68,12 @@ fi
 if [ -f /tmp/kiosk-browser.pid ]; then
     log "Killing existing browser instance"
     kill $(cat /tmp/kiosk-browser.pid) 2>/dev/null || true
-    killall -9 midori 2>/dev/null || true
+    killall -9 epiphany-browser 2>/dev/null || true
     rm -f /tmp/kiosk-browser.pid
 fi
 
 # Clean up any zombie processes
-killall -9 midori 2>/dev/null || true
+killall -9 epiphany-browser 2>/dev/null || true
 killall -9 python3 2>/dev/null || true
 
 # Make sure the display is on
@@ -81,6 +81,10 @@ log "Configuring display settings"
 xset -display :0 s off || log "Failed to disable screen saver"
 xset -display :0 s noblank || log "Failed to disable screen blanking"
 xset -display :0 dpms 0 0 0 || log "Failed to disable DPMS"
+
+# Create browser profile directory if it doesn't exist
+mkdir -p /var/www/kiosk/.epiphany
+chown -R $CURRENT_USER:$CURRENT_USER /var/www/kiosk/.epiphany
 
 # Make sure we're in kiosk directory
 cd "$PLAYER_DIR" || {
@@ -103,7 +107,7 @@ while true; do
     
     if [ ! -f /tmp/kiosk-browser.pid ] || ! ps -p $(cat /tmp/kiosk-browser.pid 2>/dev/null) > /dev/null 2>&1; then
         log "Browser died or PID file missing, restarting..."
-        killall -9 midori 2>/dev/null || true
+        killall -9 epiphany-browser 2>/dev/null || true
         start_browser
     fi
     
