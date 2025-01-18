@@ -45,7 +45,7 @@ start_chromium() {
     # Hide cursor
     unclutter -idle 0.5 -root &
     
-    # Start Chromium in full kiosk mode
+    # Start Chromium in full kiosk mode with stability flags
     chromium-browser \
         --noerrdialogs \
         --disable-infobars \
@@ -54,6 +54,17 @@ start_chromium() {
         --disable-session-crashed-bubble \
         --disable-component-update \
         --disable-pinch \
+        --disable-gpu \
+        --disable-software-rasterizer \
+        --disable-dev-shm-usage \
+        --no-sandbox \
+        --ignore-gpu-blocklist \
+        --enable-gpu-rasterization \
+        --test-type \
+        --start-maximized \
+        --memory-model=low \
+        --disk-cache-size=1 \
+        --media-cache-size=1 \
         --overscroll-history-navigation=0 \
         --disable-features=TouchpadOverscrollHistoryNavigation \
         --check-for-update-interval=31536000 \
@@ -74,12 +85,19 @@ log "Starting kiosk script"
 if [ -f /tmp/kiosk-http.pid ]; then
     log "Killing existing HTTP server"
     kill $(cat /tmp/kiosk-http.pid) 2>/dev/null || true
+    rm -f /tmp/kiosk-http.pid
 fi
 
 if [ -f /tmp/kiosk-chromium.pid ]; then
     log "Killing existing Chromium instance"
     kill $(cat /tmp/kiosk-chromium.pid) 2>/dev/null || true
+    killall -9 chromium-browser 2>/dev/null || true
+    rm -f /tmp/kiosk-chromium.pid
 fi
+
+# Clean up any zombie processes
+killall -9 chromium-browser 2>/dev/null || true
+killall -9 python3 2>/dev/null || true
 
 # Make sure the display is on
 log "Configuring display settings"
@@ -101,13 +119,14 @@ log "Initial services started"
 
 # Monitor and restart if needed
 while true; do
-    if ! ps -p $(cat /tmp/kiosk-http.pid 2>/dev/null) > /dev/null; then
-        log "HTTP server died, restarting..."
+    if [ ! -f /tmp/kiosk-http.pid ] || ! ps -p $(cat /tmp/kiosk-http.pid 2>/dev/null) > /dev/null 2>&1; then
+        log "HTTP server died or PID file missing, restarting..."
         start_http_server
     fi
     
-    if ! ps -p $(cat /tmp/kiosk-chromium.pid 2>/dev/null) > /dev/null; then
-        log "Chromium died, restarting..."
+    if [ ! -f /tmp/kiosk-chromium.pid ] || ! ps -p $(cat /tmp/kiosk-chromium.pid 2>/dev/null) > /dev/null 2>&1; then
+        log "Chromium died or PID file missing, restarting..."
+        killall -9 chromium-browser 2>/dev/null || true
         start_chromium
     fi
     
