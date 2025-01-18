@@ -46,7 +46,8 @@ fi
 
 # Clone the repository
 log "Cloning repository..."
-git clone https://github.com/robklaiss/new-player.git kiosk
+git config --global --add safe.directory /var/www/kiosk
+git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk || error "Failed to clone repository"
 
 # Set up service files
 log "Setting up service files..."

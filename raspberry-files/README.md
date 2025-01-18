@@ -56,32 +56,27 @@ sudo systemctl start kiosk.service monitor.service
 Run this command to install everything:
 
 ```bash
-cd /tmp && mkdir -p kiosk-install && cd kiosk-install && sudo git clone https://github.com/robklaiss/new-player.git && sudo bash new-player/raspberry-files/install.sh
+cd /var/www && sudo git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk && sudo bash kiosk/raspberry-files/install.sh
 ```
 
 Or if you prefer step by step:
 
 ```bash
-# Create a temporary directory
-cd /tmp
-mkdir kiosk-install
-cd kiosk-install
-
 # Clone the repository
-sudo git clone https://github.com/robklaiss/new-player.git
-cd new-player
+cd /var/www
+sudo git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk
 
 # Run the installation script
+cd kiosk
 sudo bash raspberry-files/install.sh
 ```
 
 The script will:
 1. Install all required packages
 2. Set up the display manager
-3. Clone the repository
-4. Configure the services
-5. Set appropriate permissions
-6. Start the kiosk
+3. Configure the services
+4. Set appropriate permissions
+5. Start the kiosk
 
 ### Initial Setup
 
