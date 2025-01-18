@@ -8,15 +8,15 @@ After=lightdm.service
 
 [Service]
 Type=simple
-User=$USER
+User=infoactive
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$USER/.Xauthority
-Environment=HOME=/home/$USER
+Environment=XAUTHORITY=/home/infoactive/.Xauthority
+Environment=HOME=/home/infoactive
 WorkingDirectory=/var/www/kiosk
 ExecStartPre=/bin/mkdir -p /var/www/kiosk
-ExecStartPre=/bin/chown -R $USER:$USER /var/www/kiosk
+ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
 ExecStartPre=/bin/touch /var/log/kiosk.log
-ExecStartPre=/bin/chown $USER:$USER /var/log/kiosk.log
+ExecStartPre=/bin/chown infoactive:infoactive /var/log/kiosk.log
 ExecStartPre=/bin/sleep 10
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 Restart=always
