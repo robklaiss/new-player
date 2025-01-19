@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=infoactive
-Environment=PYTHONPATH=/usr/local/lib/python3.9/dist-packages:/usr/lib/python3/dist-packages
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WorkingDirectory=/var/www/kiosk
-ExecStartPre=/usr/bin/pip3 install requests
 ExecStart=/usr/bin/python3 /var/www/kiosk/device_monitor.py
 Restart=always
 RestartSec=60

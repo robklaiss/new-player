@@ -2,12 +2,17 @@
 import os
 import json
 import time
-import uuid
-import requests
-import hashlib
 import logging
 from datetime import datetime
 import subprocess
+import sys
+
+try:
+    import requests
+except ImportError:
+    logging.error("Requests module not found. Installing...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+    import requests
 
 class DeviceMonitor:
     def __init__(self):
@@ -17,49 +22,78 @@ class DeviceMonitor:
         self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
         self.device_id = 'device_20250119_06395bce'
         self.setup_logging()
+        logging.info("Device Monitor initialized with device_id: %s", self.device_id)
 
     def setup_logging(self):
+        log_file = '/var/log/device_monitor.log'
+        try:
+            # Ensure log directory exists and has correct permissions
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            if not os.path.exists(log_file):
+                open(log_file, 'a').close()
+            os.chmod(log_file, 0o666)
+        except Exception as e:
+            print(f"Error setting up log file: {e}")
+            # Fallback to console logging if file logging fails
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s'
+            )
+            return
+
         logging.basicConfig(
-            filename='/var/log/device_monitor.log',
+            filename=log_file,
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
+        # Also log to console
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        logging.getLogger('').addHandler(console)
 
     def get_system_info(self):
+        info = {}
         try:
-            cpu_temp = subprocess.check_output(['vcgencmd', 'measure_temp']).decode()
-            memory = subprocess.check_output(['free', '-m']).decode().split('\n')[1].split()
+            # Memory info
+            with open('/proc/meminfo') as f:
+                mem = f.readlines()
+            total = int(mem[0].split()[1])
+            free = int(mem[1].split()[1])
+            info['memory_total'] = str(total // 1024) + 'MB'
+            info['memory_used'] = str((total - free) // 1024) + 'MB'
+
+            # Disk info
             disk = subprocess.check_output(['df', '-h', '/']).decode().split('\n')[1].split()
-            
-            return {
-                'cpu_temperature': cpu_temp.replace('temp=', '').strip(),
-                'memory_total': memory[1],
-                'memory_used': memory[2],
-                'disk_total': disk[1],
-                'disk_used': disk[2],
-                'disk_percent': disk[4]
-            }
+            info['disk_total'] = disk[1]
+            info['disk_used'] = disk[2]
+            info['disk_percent'] = disk[4]
+
+            # Try to get CPU temp on Raspberry Pi
+            try:
+                temp = subprocess.check_output(['vcgencmd', 'measure_temp']).decode()
+                info['cpu_temperature'] = temp.replace('temp=', '').strip()
+            except:
+                info['cpu_temperature'] = 'N/A'
+
         except Exception as e:
             logging.error(f"Error getting system info: {e}")
-            return {}
+            info['error'] = str(e)
 
-    def calculate_file_hash(self, filepath):
-        sha256_hash = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-        return sha256_hash.hexdigest()
+        return info
 
     def get_content_info(self):
         content_info = {}
-        for filename in ['index.html', 'video.mp4', 'update.json']:
-            filepath = os.path.join(self.content_dir, filename)
-            if os.path.exists(filepath):
-                content_info[filename] = {
-                    'hash': self.calculate_file_hash(filepath),
-                    'size': os.path.getsize(filepath),
-                    'last_modified': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
-                }
+        try:
+            for filename in ['index.html', 'config.js', 'service-worker.js']:
+                filepath = os.path.join(self.content_dir, filename)
+                if os.path.exists(filepath):
+                    content_info[filename] = {
+                        'size': os.path.getsize(filepath),
+                        'last_modified': datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
+                    }
+        except Exception as e:
+            logging.error(f"Error getting content info: {e}")
+            content_info['error'] = str(e)
         return content_info
 
     def send_ping(self):
@@ -76,38 +110,38 @@ class DeviceMonitor:
                 'X-Device-Id': self.device_id
             }
             
-            response = requests.post(f"{self.api_url}/ping.php", json=data, headers=headers)
+            logging.info(f"Sending ping to {self.api_url}/ping.php")
+            response = requests.post(f"{self.api_url}/ping.php", 
+                                  json=data, 
+                                  headers=headers,
+                                  timeout=10)
             response.raise_for_status()
-            logging.info(f"Ping sent successfully: {response.text}")
+            logging.info(f"Ping response: {response.text}")
             return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Network error sending ping: {e}")
+            return False
         except Exception as e:
             logging.error(f"Error sending ping: {e}")
             return False
 
-    def process_updates(self, updates):
-        for update in updates:
-            try:
-                file_url = update['url']
-                file_path = os.path.join(self.content_dir, update['filename'])
-                
-                # Download file
-                response = requests.get(file_url, stream=True)
-                response.raise_for_status()
-                
-                # Save file
-                with open(file_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                
-                logging.info(f"Successfully updated {update['filename']}")
-            except Exception as e:
-                logging.error(f"Error processing update for {update.get('filename')}: {e}")
-
     def run(self):
+        logging.info("Starting device monitor")
         while True:
-            self.send_ping()
-            time.sleep(300)  # Wait 5 minutes
+            try:
+                self.send_ping()
+                time.sleep(60)  # Ping every minute
+            except KeyboardInterrupt:
+                logging.info("Shutting down device monitor")
+                break
+            except Exception as e:
+                logging.error(f"Error in main loop: {e}")
+                time.sleep(60)  # Wait before retrying
 
 if __name__ == "__main__":
-    monitor = DeviceMonitor()
-    monitor.run()
+    try:
+        monitor = DeviceMonitor()
+        monitor.run()
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        sys.exit(1)
