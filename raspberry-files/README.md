@@ -12,7 +12,8 @@ raspberry-files/
 ├── icon-192.png      # PWA icon (192x192)
 ├── icon-512.png      # PWA icon (512x512)
 ├── start-kiosk.sh    # Startup script
-└── kiosk.service     # Systemd service for kiosk
+├── kiosk.service     # Systemd service for kiosk
+└── manage_browser.py  # Script to manage Chromium browser
 ```
 
 ## Installation Steps
@@ -20,30 +21,23 @@ raspberry-files/
 1. Install system dependencies:
 ```bash
 sudo apt update
-sudo apt install -y firefox-esr unclutter x11-xserver-utils curl
+sudo apt install -y chromium-browser unclutter x11-xserver-utils curl
 ```
 
 2. Create the web directory and copy files:
 ```bash
 sudo mkdir -p /var/www/kiosk
-sudo cp index.html service-worker.js config.js manifest.json icon-192.png icon-512.png start-kiosk.sh /var/www/kiosk/
-sudo chmod +x /var/www/kiosk/start-kiosk.sh
+sudo cp index.html service-worker.js config.js manifest.json icon-192.png icon-512.png manage_browser.py monitor.service /var/www/kiosk/
+sudo chmod +x /var/www/kiosk/manage_browser.py
 ```
 
-3. Set up Firefox for kiosk mode:
+3. Set up the monitor service:
 ```bash
-# Create Firefox profile directory
-sudo mkdir -p /var/www/kiosk/.firefox
-sudo chown -R infoactive:infoactive /var/www/kiosk/.firefox
-
-# Enable service workers
-mkdir -p /home/infoactive/.mozilla/firefox/
-cat > /home/infoactive/.mozilla/firefox/user.js << EOL
-user_pref("dom.serviceWorkers.enabled", true);
-user_pref("dom.webworkers.enabled", true);
-user_pref("dom.serviceWorkers.testing.enabled", true);
-EOL
-sudo chown -R infoactive:infoactive /home/infoactive/.mozilla
+# Copy service file
+sudo cp monitor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable monitor.service
+sudo systemctl start monitor.service
 ```
 
 4. Install system service:
@@ -55,7 +49,7 @@ sudo cp kiosk.service /etc/systemd/system/
 ```bash
 sudo chown -R infoactive:infoactive /var/www/kiosk
 sudo chmod 644 /var/www/kiosk/*
-sudo chmod +x /var/www/kiosk/start-kiosk.sh
+sudo chmod +x /var/www/kiosk/manage_browser.py
 ```
 
 6. Enable and start service:
@@ -124,9 +118,9 @@ tail -f /var/log/kiosk.log
 ## Troubleshooting
 
 1. If you see "Service workers are not supported":
-   - Check that Firefox's service worker settings are enabled in user.js
+   - Check that Chromium's service worker settings are enabled
    - Make sure you're using HTTPS or localhost
-   - Check Firefox's console (Ctrl+Shift+K) for specific errors
+   - Check Chromium's console (Ctrl+Shift+K) for specific errors
 
 2. If video doesn't play:
    - Check /var/log/kiosk.log for errors
