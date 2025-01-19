@@ -1,14 +1,14 @@
 [Unit]
-Description=Kiosk Device Monitor and Browser Manager
+Description=Device Monitor Service
 After=network.target
 
 [Service]
 Type=simple
-User=pi
-Environment=BACKEND_URL=https://vinculo.com.py/new-player/api
-ExecStart=/bin/bash -c '/usr/bin/python3 /var/www/kiosk/device_monitor.py & /usr/bin/python3 /var/www/kiosk/manage_browser.py'
+User=infoactive
+WorkingDirectory=/var/www/kiosk
+ExecStart=/usr/bin/python3 /var/www/kiosk/device_monitor.py
 Restart=always
-RestartSec=3
+RestartSec=60
 
 [Install]
 WantedBy=multi-user.target

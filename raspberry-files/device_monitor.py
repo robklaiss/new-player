@@ -11,11 +11,11 @@ import subprocess
 
 class DeviceMonitor:
     def __init__(self):
-        self.config_file = '/var/www/kiosk/device_config.json'
+        self.config_file = '/var/www/kiosk/config.js'
         self.content_dir = '/var/www/kiosk'
-        # Use environment variable or default to localhost
-        self.api_url = os.environ.get('BACKEND_URL', 'http://localhost:8080/api')
-        self.device_id = self.get_device_id()
+        self.api_url = 'https://vinculo.com.py/new-player/api'
+        self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
+        self.device_id = 'device_20250119_06395bce'
         self.setup_logging()
 
     def setup_logging(self):
@@ -24,22 +24,6 @@ class DeviceMonitor:
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
-
-    def get_device_id(self):
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                    return config.get('device_id')
-            except:
-                pass
-        
-        # Generate new device ID if none exists
-        device_id = str(uuid.uuid4())
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-        with open(self.config_file, 'w') as f:
-            json.dump({'device_id': device_id}, f)
-        return device_id
 
     def get_system_info(self):
         try:
@@ -87,16 +71,15 @@ class DeviceMonitor:
                 'content_info': self.get_content_info()
             }
             
-            response = requests.post(f"{self.api_url}/ping", json=data)
-            response.raise_for_status()
+            headers = {
+                'X-API-Key': self.api_key,
+                'X-Device-Id': self.device_id
+            }
             
-            # Check for updates
-            updates = response.json().get('updates', [])
-            if updates:
-                self.process_updates(updates)
-                
-            logging.info("Ping successful")
-            return True
+            response = requests.post(f"{self.api_url}/ping.php", json=data, headers=headers)
+            response.raise_for_status()
+            logging.info(f"Ping sent successfully: {response.text}")
+            return response.json()
         except Exception as e:
             logging.error(f"Error sending ping: {e}")
             return False
