@@ -1,9 +1,12 @@
 <?php
+require_once 'log.php';
 header('Content-Type: application/json');
 
 $response = ['success' => false, 'videos' => [], 'error' => null];
 
 try {
+    log_event('videos_list_request', ['ip' => $_SERVER['REMOTE_ADDR']]);
+
     $videosDir = '../videos';
     $videos = [];
     
@@ -24,9 +27,17 @@ try {
     $response['success'] = true;
     $response['videos'] = $videos;
 
+    log_event('videos_list_success', [
+        'count' => count($videos),
+        'total_size' => array_sum(array_column($videos, 'size'))
+    ]);
+
 } catch (Exception $e) {
     http_response_code(500);
     $response['error'] = $e->getMessage();
+    log_event('videos_list_error', [
+        'error' => $e->getMessage()
+    ]);
 }
 
 echo json_encode($response);

@@ -1,9 +1,12 @@
 <?php
+require_once 'log.php';
 header('Content-Type: application/json');
 
 $response = ['success' => false, 'error' => null];
 
 try {
+    log_event('upload_start', ['method' => $_SERVER['REQUEST_METHOD']]);
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('Only POST method is allowed');
     }
@@ -66,9 +69,19 @@ try {
     $response['success'] = true;
     $response['filename'] = $filename;
 
+    log_event('upload_success', [
+        'filename' => $filename,
+        'size' => filesize($targetPath),
+        'mime_type' => $mimeType
+    ]);
+
 } catch (Exception $e) {
     http_response_code(500);
     $response['error'] = $e->getMessage();
+    log_event('upload_error', [
+        'error' => $e->getMessage(),
+        'file' => isset($_FILES['video']) ? $_FILES['video']['name'] : 'no_file'
+    ]);
 }
 
 echo json_encode($response);
