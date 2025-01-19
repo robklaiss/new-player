@@ -1,0 +1,27 @@
+# Prevent directory listing
+Options -Indexes
+
+# Protect data directory
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Allow access to videos directory
+<Directory "videos">
+    Options -Indexes
+    Order allow,deny
+    Allow from all
+</Directory>
+
+# PHP handler
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
