@@ -29,18 +29,22 @@ setup_firefox_profile() {
     # Create user.js with required settings
     cat > "$FIREFOX_PROFILE/user.js" << EOL
 user_pref("browser.cache.disk.enable", true);
-user_pref("browser.cache.memory.enable", true);
+user_pref("browser.cache.disk.capacity", 1048576);
+user_pref("browser.cache.disk.smart_size.enabled", false);
+user_pref("browser.cache.disk.smart_size.first_run", false);
 user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.sessionstore.resume_session_once", false);
 user_pref("browser.shell.checkDefaultBrowser", false);
-user_pref("browser.tabs.warnOnClose", false);
-user_pref("browser.startup.homepage", "http://localhost:$HTTP_PORT");
+user_pref("browser.startup.homepage", "about:blank");
+user_pref("browser.startup.page", 0);
 user_pref("dom.serviceWorkers.enabled", true);
-user_pref("dom.webworkers.enabled", true);
+user_pref("dom.webnotifications.enabled", true);
+user_pref("dom.push.enabled", true);
 user_pref("dom.serviceWorkers.testing.enabled", true);
-user_pref("security.fileuri.strict_origin_policy", false);
-user_pref("privacy.file_unique_origin", false);
-user_pref("browser.sessionstore.enabled", false);
-user_pref("toolkit.startup.max_resumed_crashes", -1);
+user_pref("privacy.trackingprotection.enabled", false);
+user_pref("network.cookie.cookieBehavior", 0);
+user_pref("security.mixed_content.block_active_content", false);
+user_pref("security.mixed_content.block_display_content", false);
 EOL
     
     # Set permissions
@@ -101,6 +105,7 @@ start_browser() {
            --kiosk \
            --no-remote \
            --private-window \
+           --enable-features=ServiceWorkerServicification \
            "http://localhost:$HTTP_PORT" &
     
     local pid=$!
