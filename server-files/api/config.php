@@ -1,7 +1,11 @@
 <?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Base configuration
 define('BASE_URL', 'https://vinculo.com.py/new-player');
-define('API_KEY', 'your-secret-api-key-here');  // Change this to a secure key
+define('API_KEY', 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK');  // Secure generated key
 define('VIDEOS_DIR', __DIR__ . '/videos/');
 define('LOGS_DIR', __DIR__ . '/logs/');
 define('DEVICES_FILE', __DIR__ . '/data/devices.json');
@@ -30,7 +34,16 @@ if (!file_exists(ROTATION_FILE)) {
 // Helper functions
 function verify_api_key() {
     $headers = getallheaders();
-    $api_key = isset($headers['X-API-Key']) ? $headers['X-API-Key'] : '';
+    $api_key = '';
+    
+    // Try different methods to get the API key
+    if (isset($headers['X-API-Key'])) {
+        $api_key = $headers['X-API-Key'];
+    } elseif (isset($headers['HTTP_X_API_KEY'])) {
+        $api_key = $headers['HTTP_X_API_KEY'];
+    } elseif (isset($_GET['key'])) {
+        $api_key = $_GET['key'];
+    }
     
     if ($api_key !== API_KEY) {
         http_response_code(401);

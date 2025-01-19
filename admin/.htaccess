@@ -1,0 +1,19 @@
+# Protect admin directory
+AuthType Basic
+AuthName "Admin Area"
+AuthUserFile /path/to/.htpasswd
+Require valid-user
+
+# PHP handler
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# Deny access to .htaccess and .htpasswd
+<FilesMatch "^\.ht">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
