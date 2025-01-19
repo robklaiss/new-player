@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk Device Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .device-card {
+            margin-bottom: 1rem;
+        }
+        #uploadProgress {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Kiosk Device Manager</h1>
+        
+        <!-- Upload Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Upload New Video</h5>
+            </div>
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="videoFile" class="form-label">Select Video File</label>
+                        <input type="file" class="form-control" id="videoFile" name="video" accept="video/*" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload Video</button>
+                </form>
+                <div id="uploadProgress" class="progress mt-3">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="uploadMessage" class="alert mt-3" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Devices Section -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Connected Devices</h5>
+            </div>
+            <div class="card-body">
+                <div id="deviceList" class="row"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuration
+        const API_URL = '/new-player/api';
+        const API_KEY = 'your-secret-api-key-here'; // This should match your server's API key
+
+        // Handle file upload
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const fileInput = form.querySelector('#videoFile');
+            const progressBar = document.querySelector('#uploadProgress .progress-bar');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const messageDiv = document.getElementById('uploadMessage');
+            
+            if (!fileInput.files.length) {
+                showMessage('Please select a file first.', 'danger');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('video', fileInput.files[0]);
+
+            try {
+                uploadProgress.style.display = 'block';
+                messageDiv.style.display = 'none';
+
+                const response = await fetch(`${API_URL}/upload.php`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                showMessage('Video uploaded successfully!', 'success');
+                form.reset();
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            } finally {
+                uploadProgress.style.display = 'none';
+            }
+        });
+
+        // Helper function to show messages
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('uploadMessage');
+            messageDiv.className = `alert alert-${type} mt-3`;
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+        }
+
+        // Load and display devices
+        async function loadDevices() {
+            try {
+                const response = await fetch(`${API_URL}/devices.php`, {
+                    headers: {
+                        'X-API-Key': API_KEY
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load devices: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const deviceList = document.getElementById('deviceList');
+                deviceList.innerHTML = '';
+
+                data.devices.forEach(device => {
+                    const card = document.createElement('div');
+                    card.className = 'col-md-4 device-card';
+                    card.innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Device ${device.id}</h5>
+                                <p class="card-text">
+                                    Status: ${device.status || 'Unknown'}<br>
+                                    Last Seen: ${new Date(device.last_seen * 1000).toLocaleString()}<br>
+                                    IP: ${device.ip || 'Unknown'}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                    deviceList.appendChild(card);
+                });
+            } catch (error) {
+                showMessage(error.message, 'danger');
+            }
+        }
+
+        // Initial load
+        loadDevices();
+        // Refresh devices every 30 seconds
+        setInterval(loadDevices, 30000);
+    </script>
+</body>
+</html>
