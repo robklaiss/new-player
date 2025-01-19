@@ -75,14 +75,16 @@ start_http_server() {
     debug "HTTP server PID: $pid"
     
     # Wait for server to be ready
-    for i in {1..10}; do
+    for i in {1..30}; do
         if curl -s http://localhost:$HTTP_PORT > /dev/null; then
             log "HTTP server is responding"
             return 0
         fi
+        log "Waiting for HTTP server... attempt $i"
         sleep 1
     done
-    log "Warning: HTTP server not responding after 10 seconds"
+    log "Warning: HTTP server not responding after 30 seconds"
+    return 1
 }
 
 # Function to start browser in kiosk mode
@@ -100,6 +102,9 @@ start_browser() {
     # Setup Firefox profile
     setup_firefox_profile
     
+    # Wait a bit for HTTP server
+    sleep 5
+    
     # Start Firefox in kiosk mode
     firefox --profile "$FIREFOX_PROFILE" \
            --kiosk \
@@ -111,34 +116,52 @@ start_browser() {
     local pid=$!
     echo $pid > /tmp/kiosk-browser.pid
     debug "Firefox PID: $pid"
+    
+    # Wait to ensure Firefox starts
+    sleep 5
+    
+    # Check if Firefox is actually running
+    if ! ps -p $pid > /dev/null; then
+        log "Error: Firefox failed to start"
+        return 1
+    fi
+    
+    log "Firefox started successfully"
+    return 0
 }
 
 log "Starting kiosk script"
 
 # Kill existing processes
 pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill -f "firefox.*--kiosk" || true
-pkill -f "unclutter" || true
+pkill -f firefox || true
+pkill -f unclutter || true
+
+# Clean up old PIDs
+rm -f /tmp/kiosk-http.pid /tmp/kiosk-browser.pid
 
 # Start HTTP server
-start_http_server
+start_http_server || exit 1
 
 # Start browser
-start_browser
+start_browser || exit 1
 
 # Keep script running
 while true; do
-    # Check if browser is still running
-    if ! pgrep -f "firefox.*--kiosk" > /dev/null; then
-        log "Browser crashed or closed, restarting..."
-        start_browser
-    fi
-    
-    # Check if HTTP server is still running
-    if ! pgrep -f "python3 -m http.server $HTTP_PORT" > /dev/null; then
-        log "HTTP server crashed, restarting..."
+    # Check if HTTP server is running
+    if ! curl -s http://localhost:$HTTP_PORT > /dev/null; then
+        log "HTTP server not responding, restarting..."
         start_http_server
     fi
     
-    sleep 10
+    # Check if Firefox is running
+    if [ -f /tmp/kiosk-browser.pid ]; then
+        pid=$(cat /tmp/kiosk-browser.pid)
+        if ! ps -p $pid > /dev/null; then
+            log "Firefox not running, restarting..."
+            start_browser
+        fi
+    fi
+    
+    sleep 30
 done
