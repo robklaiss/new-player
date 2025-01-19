@@ -5,10 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=infoactive
-Environment=PYTHONUNBUFFERED=1
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WorkingDirectory=/var/www/kiosk
-ExecStart=/usr/bin/python3 /var/www/kiosk/device_monitor.py
+ExecStart=/usr/bin/python3 device_monitor.py
 Restart=always
 RestartSec=60
 
