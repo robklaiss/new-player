@@ -54,10 +54,13 @@ class DeviceMonitor:
 
     def send_ping(self):
         try:
+            system_info = self.get_system_info()
+            
             data = {
-                'device_id': self.device_id,
-                'timestamp': datetime.now().isoformat(),
-                'system_info': self.get_system_info()
+                'status': {
+                    'disk': system_info,
+                    'timestamp': datetime.now().isoformat()
+                }
             }
             
             headers = {
@@ -68,12 +71,12 @@ class DeviceMonitor:
                 'User-Agent': 'InfoActive-Kiosk/1.0'
             }
             
-            logging.info(f"Sending ping to {self.api_url}/ping.php")
+            logging.info(f"Sending ping to {self.api_url}/update.php")
             logging.debug(f"Headers: {headers}")
             logging.debug(f"Data: {data}")
             
             response = requests.post(
-                f"{self.api_url}/ping.php", 
+                f"{self.api_url}/update.php", 
                 data=json.dumps(data),
                 headers=headers,
                 timeout=10
