@@ -62,7 +62,10 @@ class DeviceMonitor:
             
             headers = {
                 'X-API-Key': self.api_key,
-                'X-Device-Id': self.device_id
+                'X-Device-Id': self.device_id,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'InfoActive-Kiosk/1.0'
             }
             
             logging.info(f"Sending ping to {self.api_url}/ping.php")
@@ -71,7 +74,7 @@ class DeviceMonitor:
             
             response = requests.post(
                 f"{self.api_url}/ping.php", 
-                json=data, 
+                data=json.dumps(data),
                 headers=headers,
                 timeout=10
             )
