@@ -10,9 +10,12 @@ Conflicts=browser-manager.service
 [Service]
 Type=simple
 User=infoactive
+Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
+# Add supplementary groups for display access
+SupplementaryGroups=video input gpio
 WorkingDirectory=/var/www/kiosk
 ExecStartPre=/bin/mkdir -p /var/www/kiosk
 ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
