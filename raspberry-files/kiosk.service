@@ -5,6 +5,7 @@ After=network-online.target
 After=graphical.target
 After=multi-user.target
 After=lightdm.service
+Conflicts=browser-manager.service
 
 [Service]
 Type=simple

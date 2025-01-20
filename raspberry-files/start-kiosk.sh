@@ -4,7 +4,6 @@
 PLAYER_DIR="/var/www/kiosk"
 HTTP_PORT=8000
 LOG_FILE="/var/log/kiosk.log"
-FIREFOX_PROFILE="$PLAYER_DIR/.firefox"
 
 # Logging function
 log() {
@@ -17,42 +16,6 @@ debug() {
     if [ -n "$2" ]; then
         log "DEBUG: Command output: $2"
     fi
-}
-
-# Create Firefox profile with required settings
-setup_firefox_profile() {
-    log "Setting up Firefox profile"
-    
-    # Create profile directory if it doesn't exist
-    mkdir -p "$FIREFOX_PROFILE"
-    
-    # Create user.js with required settings
-    cat > "$FIREFOX_PROFILE/user.js" << EOL
-user_pref("browser.cache.disk.enable", true);
-user_pref("browser.cache.disk.capacity", 1048576);
-user_pref("browser.cache.disk.smart_size.enabled", false);
-user_pref("browser.cache.disk.smart_size.first_run", false);
-user_pref("browser.sessionstore.resume_from_crash", false);
-user_pref("browser.sessionstore.resume_session_once", false);
-user_pref("browser.shell.checkDefaultBrowser", false);
-user_pref("browser.startup.homepage", "about:blank");
-user_pref("browser.startup.page", 0);
-user_pref("dom.serviceWorkers.enabled", true);
-user_pref("dom.webnotifications.enabled", true);
-user_pref("dom.push.enabled", true);
-user_pref("dom.serviceWorkers.testing.enabled", true);
-user_pref("privacy.trackingprotection.enabled", false);
-user_pref("network.cookie.cookieBehavior", 0);
-user_pref("security.mixed_content.block_active_content", false);
-user_pref("security.mixed_content.block_display_content", false);
-EOL
-    
-    # Set permissions
-    chown -R infoactive:infoactive "$FIREFOX_PROFILE"
-    chmod 755 "$FIREFOX_PROFILE"
-    chmod 644 "$FIREFOX_PROFILE/user.js"
-    
-    log "Firefox profile setup complete"
 }
 
 # Wait for X server
@@ -89,7 +52,7 @@ start_http_server() {
 
 # Function to start browser in kiosk mode
 start_browser() {
-    log "Starting Firefox in kiosk mode"
+    log "Starting Chromium in kiosk mode"
     
     # Set display settings
     xset s off
@@ -99,46 +62,30 @@ start_browser() {
     # Hide cursor
     unclutter -idle 0 &
     
-    # Setup Firefox profile
-    setup_firefox_profile
-    
-    # Wait a bit for HTTP server
-    sleep 5
-    
-    # Start Firefox in kiosk mode
-    firefox --profile "$FIREFOX_PROFILE" \
-           --kiosk \
-           --no-remote \
-           --private-window \
-           --enable-features=ServiceWorkerServicification \
-           "http://localhost:$HTTP_PORT" &
-    
-    local pid=$!
-    echo $pid > /tmp/kiosk-browser.pid
-    debug "Firefox PID: $pid"
-    
-    # Wait to ensure Firefox starts
-    sleep 5
-    
-    # Check if Firefox is actually running
-    if ! ps -p $pid > /dev/null; then
-        log "Error: Firefox failed to start"
-        return 1
-    fi
-    
-    log "Firefox started successfully"
-    return 0
+    # Start Chromium in kiosk mode
+    chromium-browser \
+        --kiosk \
+        --noerrdialogs \
+        --disable-session-crashed-bubble \
+        --disable-infobars \
+        --check-for-update-interval=31536000 \
+        --disable-features=TranslateUI \
+        --autoplay-policy=no-user-gesture-required \
+        --allow-file-access-from-files \
+        --disable-web-security \
+        --user-data-dir=/home/infoactive/.config/chromium \
+        "http://localhost:$HTTP_PORT/index.html"
 }
 
 log "Starting kiosk script"
 
 # Kill existing processes
 pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill -f firefox || true
+pkill -f chromium || true
 pkill -f unclutter || true
 
-# Clean up old PIDs
-rm -f /tmp/kiosk-http.pid /tmp/kiosk-browser.pid
+# Clean up old PID files
+rm -f /tmp/kiosk-http.pid
 
 # Start HTTP server
 start_http_server || exit 1
@@ -146,7 +93,7 @@ start_http_server || exit 1
 # Start browser
 start_browser || exit 1
 
-# Keep script running
+# Keep the script running
 while true; do
     # Check if HTTP server is running
     if ! curl -s http://localhost:$HTTP_PORT > /dev/null; then
@@ -154,11 +101,11 @@ while true; do
         start_http_server
     fi
     
-    # Check if Firefox is running
-    if [ -f /tmp/kiosk-browser.pid ]; then
-        pid=$(cat /tmp/kiosk-browser.pid)
+    # Check if Chromium is running
+    if pgrep -f chromium > /dev/null; then
+        pid=$(pgrep -f chromium)
         if ! ps -p $pid > /dev/null; then
-            log "Firefox not running, restarting..."
+            log "Chromium not running, restarting..."
             start_browser
         fi
     fi
