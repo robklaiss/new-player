@@ -17,10 +17,6 @@ Environment=HOME=/home/infoactive
 # Add supplementary groups for display access
 SupplementaryGroups=video input gpio
 WorkingDirectory=/var/www/kiosk
-ExecStartPre=/bin/mkdir -p /var/www/kiosk
-ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
-ExecStartPre=/bin/touch /var/log/kiosk.log
-ExecStartPre=/bin/chown infoactive:infoactive /var/log/kiosk.log
 ExecStartPre=/bin/sleep 10
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 Restart=always
