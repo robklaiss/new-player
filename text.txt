@@ -1,50 +1,21 @@
-Jan 19 22:35:11 raspberrypi systemd[1]: monitor.service: Failed with result 'exit-code'.
-Jan 19 22:35:11 raspberrypi systemd[1]: Failed to start monitor.service - Device Monitor Service.
-Jan 19 22:35:11 raspberrypi systemd[1]: monitor.service: Consumed 4.027s CPU time.
-Jan 19 22:36:11 raspberrypi systemd[1]: monitor.service: Scheduled restart job, restart counter is at 3973.
-Jan 19 22:36:11 raspberrypi systemd[1]: Stopped monitor.service - Device Monitor Service.
-Jan 19 22:36:11 raspberrypi systemd[1]: monitor.service: Consumed 4.027s CPU time.
-Jan 19 22:36:11 raspberrypi systemd[1]: Starting monitor.service - Device Monitor Service...
-Jan 19 22:36:14 raspberrypi pip3[14616]: error: externally-managed-environment
-Jan 19 22:36:14 raspberrypi pip3[14616]: × This environment is externally managed
-Jan 19 22:36:14 raspberrypi pip3[14616]: ╰─> To install Python packages system-wide, try apt install
-Jan 19 22:36:14 raspberrypi pip3[14616]:     python3-xyz, where xyz is the package you are trying to
-Jan 19 22:36:14 raspberrypi pip3[14616]:     install.
-Jan 19 22:36:14 raspberrypi pip3[14616]:     
-Jan 19 22:36:14 raspberrypi pip3[14616]:     If you wish to install a non-Debian-packaged Python package,
-Jan 19 22:36:14 raspberrypi pip3[14616]:     create a virtual environment using python3 -m venv path/to/venv.
-Jan 19 22:36:14 raspberrypi pip3[14616]:     Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make
-Jan 19 22:36:14 raspberrypi pip3[14616]:     sure you have python3-full installed.
-Jan 19 22:36:14 raspberrypi pip3[14616]:     
-Jan 19 22:36:14 raspberrypi pip3[14616]:     For more information visit http://rptl.io/venv
-Jan 19 22:36:14 raspberrypi pip3[14616]: note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
-Jan 19 22:36:14 raspberrypi pip3[14616]: hint: See PEP 668 for the detailed specification.
-Jan 19 22:36:15 raspberrypi systemd[1]: monitor.service: Control process exited, code=exited, status=1/FAILURE
-Jan 19 22:36:15 raspberrypi systemd[1]: monitor.service: Failed with result 'exit-code'.
-Jan 19 22:36:15 raspberrypi systemd[1]: Failed to start monitor.service - Device Monitor Service.
-Jan 19 22:36:15 raspberrypi systemd[1]: monitor.service: Consumed 3.109s CPU time.
-Jan 19 22:37:15 raspberrypi systemd[1]: monitor.service: Scheduled restart job, restart counter is at 3974.
-Jan 19 22:37:15 raspberrypi systemd[1]: Stopped monitor.service - Device Monitor Service.
-Jan 19 22:37:15 raspberrypi systemd[1]: monitor.service: Consumed 3.109s CPU time.
-Jan 19 22:37:15 raspberrypi systemd[1]: Starting monitor.service - Device Monitor Service...
-Jan 19 22:37:17 raspberrypi pip3[14655]: error: externally-managed-environment
-Jan 19 22:37:17 raspberrypi pip3[14655]: × This environment is externally managed
-Jan 19 22:37:17 raspberrypi pip3[14655]: ╰─> To install Python packages system-wide, try apt install
-Jan 19 22:37:17 raspberrypi pip3[14655]:     python3-xyz, where xyz is the package you are trying to
-Jan 19 22:37:17 raspberrypi pip3[14655]:     install.
-Jan 19 22:37:17 raspberrypi pip3[14655]:     
-Jan 19 22:37:17 raspberrypi pip3[14655]:     If you wish to install a non-Debian-packaged Python package,
-Jan 19 22:37:17 raspberrypi pip3[14655]:     create a virtual environment using python3 -m venv path/to/venv.
-Jan 19 22:37:17 raspberrypi pip3[14655]:     Then use path/to/venv/bin/python and path/to/venv/bin/pip. Make
-Jan 19 22:37:17 raspberrypi pip3[14655]:     sure you have python3-full installed.
-Jan 19 22:37:17 raspberrypi pip3[14655]:     
-Jan 19 22:37:17 raspberrypi pip3[14655]:     For more information visit http://rptl.io/venv
-Jan 19 22:37:17 raspberrypi pip3[14655]: note: If you believe this is a mistake, please contact your Python installation or OS distribution provider. You can override this, at the risk of breaking your Python installation or OS, by passing --break-system-packages.
-Jan 19 22:37:17 raspberrypi pip3[14655]: hint: See PEP 668 for the detailed specification.
-Jan 19 22:37:18 raspberrypi systemd[1]: monitor.service: Control process exited, code=exited, status=1/FAILURE
-Jan 19 22:37:18 raspberrypi systemd[1]: monitor.service: Failed with result 'exit-code'.
-Jan 19 22:37:18 raspberrypi systemd[1]: Failed to start monitor.service - Device Monitor Service.
-Jan 19 22:37:18 raspberrypi systemd[1]: monitor.service: Consumed 2.609s CPU time.
-Jan 19 22:38:18 raspberrypi systemd[1]: monitor.service: Failed to schedule restart job: Unit monitor.service not found.
-Jan 19 22:38:18 raspberrypi systemd[1]: monitor.service: Failed with result 'exit-code'.
-Jan 19 22:38:18 raspberrypi systemd[1]: monitor.service: Consumed 2.609s CPU time.
+infoactive@raspberrypi:~ $ sudo systemctl status monitor.service
+● monitor.service - Device Monitor Service
+     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2025-01-20 01:49:15 -03; 19s ago
+   Main PID: 20508 (python3)
+      Tasks: 1 (limit: 760)
+        CPU: 1.169s
+     CGroup: /system.slice/monitor.service
+             └─20508 /usr/bin/python3 device_monitor.py
+
+Jan 20 01:49:18 raspberrypi python3[20508]:     <script type="text/javascript">
+Jan 20 01:49:18 raspberrypi python3[20508]:         $(function () {
+Jan 20 01:49:18 raspberrypi python3[20508]:             $('.expander').simpleexpand();
+Jan 20 01:49:18 raspberrypi python3[20508]:             prettyPrint();
+Jan 20 01:49:18 raspberrypi python3[20508]:         });
+Jan 20 01:49:18 raspberrypi python3[20508]:     </script>
+Jan 20 01:49:18 raspberrypi python3[20508]: </body>
+Jan 20 01:49:18 raspberrypi python3[20508]: </html>
+Jan 20 01:49:18 raspberrypi python3[20508]: 2025-01-20 01:49:18,367 - ERROR - Network error sending ping: 404 Client Error: Not >
+Jan 20 01:49:18 raspberrypi python3[20508]: 2025-01-20 01:49:18,367 - INFO - Ping result: False
+lines 1-19/19 (END)
