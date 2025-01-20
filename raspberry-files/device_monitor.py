@@ -71,12 +71,12 @@ class DeviceMonitor:
                 'User-Agent': 'InfoActive-Kiosk/1.0'
             }
             
-            logging.info(f"Sending ping to {self.api_url}/update.php")
+            logging.info(f"Sending ping to {self.api_url}/devices.php")
             logging.debug(f"Headers: {headers}")
             logging.debug(f"Data: {data}")
             
             response = requests.post(
-                f"{self.api_url}/update.php", 
+                f"{self.api_url}/devices.php", 
                 data=json.dumps(data),
                 headers=headers,
                 timeout=10
