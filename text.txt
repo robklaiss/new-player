@@ -1,14 +1,53 @@
-
-× browser-manager.service - Browser Manager Service
-     Loaded: loaded (/etc/systemd/system/browser-manager.service; enabled; preset: enabled)
-     Active: failed (Result: exit-code) since Mon 2025-01-20 13:54:11 -03; 12s ago
-   Duration: 2ms
-    Process: 3446 ExecStart=/usr/bin/python3 /var/www/kiosk/manage_browser.py (code=exited, status=217/USER)
-   Main PID: 3446 (code=exited, status=217/USER)
-        CPU: 0
-
+infoactive@raspberrypi:/var/www/kiosk $ journalctl -u browser-manager -n 50 --no-pager
+Jan 20 13:54:10 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 13:54:10 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 13:54:10 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 2.
+Jan 20 13:54:10 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 13:54:10 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 13:54:10 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 13:54:10 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 3.
+Jan 20 13:54:11 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 13:54:11 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 4.
+Jan 20 13:54:11 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 13:54:11 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
 Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 5.
 Jan 20 13:54:11 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
 Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Start request repeated too quickly.
 Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
 Jan 20 13:54:11 raspberrypi systemd[1]: Failed to start browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 1.
+Jan 20 14:24:14 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 2.
+Jan 20 14:24:14 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 14:24:14 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 3.
+Jan 20 14:24:15 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 14:24:15 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 4.
+Jan 20 14:24:15 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 14:24:15 raspberrypi systemd[1]: Started browser-manager.service - Browser Manager Service.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Main process exited, code=exited, status=217/USER
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 5.
+Jan 20 14:24:15 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Start request repeated too quickly.
+Jan 20 14:24:15 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 14:24:15 raspberrypi systemd[1]: Failed to start browser-manager.service - Browser Manager Service.
+infoactive@raspberrypi:/var/www/kiosk $ 
+
