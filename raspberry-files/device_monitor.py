@@ -28,7 +28,7 @@ class DeviceMonitor:
         try:
             logging.info("Initializing DeviceMonitor class")
             self.content_dir = '/var/www/kiosk'
-            self.api_url = 'https://vinculo.com.py/new-player/admin/api'
+            self.api_url = 'https://vinculo.com.py/new-player/api'  # Updated API URL
             self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
             self.device_id = 'device_20250119_06395bce'
             logging.info(f"Content directory: {self.content_dir}")
@@ -71,12 +71,12 @@ class DeviceMonitor:
                 'User-Agent': 'InfoActive-Kiosk/1.0'
             }
             
-            logging.info(f"Sending ping to {self.api_url}/devices.php")
+            logging.info(f"Sending ping to {self.api_url}/update.php")  # Updated endpoint
             logging.debug(f"Headers: {headers}")
             logging.debug(f"Data: {data}")
             
             response = requests.post(
-                f"{self.api_url}/devices.php", 
+                f"{self.api_url}/update.php",  # Updated endpoint
                 data=json.dumps(data),
                 headers=headers,
                 timeout=10
