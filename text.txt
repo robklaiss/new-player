@@ -1,21 +1,14 @@
-infoactive@raspberrypi:~ $ sudo systemctl status monitor.service
-● monitor.service - Device Monitor Service
-     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
-     Active: active (running) since Mon 2025-01-20 02:02:11 -03; 12s ago
-   Main PID: 20767 (python3)
-      Tasks: 1 (limit: 760)
-        CPU: 1.081s
-     CGroup: /system.slice/monitor.service
-             └─20767 /usr/bin/python3 device_monitor.py
 
-Jan 20 02:02:13 raspberrypi python3[20767]:     <script type="text/javascript">
-Jan 20 02:02:13 raspberrypi python3[20767]:         $(function () {
-Jan 20 02:02:13 raspberrypi python3[20767]:             $('.expander').simpleexpand();
-Jan 20 02:02:13 raspberrypi python3[20767]:             prettyPrint();
-Jan 20 02:02:13 raspberrypi python3[20767]:         });
-Jan 20 02:02:13 raspberrypi python3[20767]:     </script>
-Jan 20 02:02:13 raspberrypi python3[20767]: </body>
-Jan 20 02:02:13 raspberrypi python3[20767]: </html>
-Jan 20 02:02:13 raspberrypi python3[20767]: 2025-01-20 02:02:13,453 - ERROR - Network error sending ping: 404 Client Error: Not >
-Jan 20 02:02:13 raspberrypi python3[20767]: 2025-01-20 02:02:13,454 - INFO - Ping result: False
-lines 1-19/19 (END)
+× browser-manager.service - Browser Manager Service
+     Loaded: loaded (/etc/systemd/system/browser-manager.service; enabled; preset: enabled)
+     Active: failed (Result: exit-code) since Mon 2025-01-20 13:54:11 -03; 12s ago
+   Duration: 2ms
+    Process: 3446 ExecStart=/usr/bin/python3 /var/www/kiosk/manage_browser.py (code=exited, status=217/USER)
+   Main PID: 3446 (code=exited, status=217/USER)
+        CPU: 0
+
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Scheduled restart job, restart counter is at 5.
+Jan 20 13:54:11 raspberrypi systemd[1]: Stopped browser-manager.service - Browser Manager Service.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Start request repeated too quickly.
+Jan 20 13:54:11 raspberrypi systemd[1]: browser-manager.service: Failed with result 'exit-code'.
+Jan 20 13:54:11 raspberrypi systemd[1]: Failed to start browser-manager.service - Browser Manager Service.
