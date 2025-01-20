@@ -6,10 +6,10 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/python3 /var/www/kiosk/manage_browser.py
 Restart=always
-User=pi
-Group=pi
+User=infoactive
+Group=infoactive
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=XAUTHORITY=/home/infoactive/.Xauthority
 # Add supplementary groups for display access
 SupplementaryGroups=video input gpio
 # Working directory
