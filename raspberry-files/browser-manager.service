@@ -3,7 +3,7 @@ Description=Browser Manager Service
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /opt/vinculo-player/manage_browser.py
+ExecStart=/usr/bin/python3 /var/www/kiosk/manage_browser.py
 Restart=always
 User=pi
 Environment=DISPLAY=:0
