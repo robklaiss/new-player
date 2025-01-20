@@ -28,7 +28,7 @@ class DeviceMonitor:
         try:
             logging.info("Initializing DeviceMonitor class")
             self.content_dir = '/var/www/kiosk'
-            self.api_url = 'https://vinculo.com.py/new-player/admin/api/v1'
+            self.api_url = 'https://vinculo.com.py/new-player/admin/api'
             self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
             self.device_id = 'device_20250119_06395bce'
             logging.info(f"Content directory: {self.content_dir}")
