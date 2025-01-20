@@ -1,122 +1,121 @@
-infoactive@raspberrypi:/var/www/kiosk $ sudo systemctl status monitor.service
-● monitor.service - Device Monitor Service
-     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
-     Active: active (running) since Mon 2025-01-20 02:13:01 -03; 12h ago
-   Main PID: 570 (python3)
-      Tasks: 1 (limit: 760)
-        CPU: 53.003s
-     CGroup: /system.slice/monitor.service
-             └─570 /usr/bin/python3 device_monitor.py
+infoactive@raspberrypi:/var/www/kiosk $ cat /var/www/kiosk/device_monitor.py
+#!/usr/bin/env python3
+import os
+import json
+import time
+import logging
+from datetime import datetime
+import subprocess
+import sys
 
-Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
-Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
-Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
-Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
-Jan 20 15:01:18 raspberrypi python3[570]:         });
-Jan 20 15:01:18 raspberrypi python3[570]:     </script>
-Jan 20 15:01:18 raspberrypi python3[570]: </body>
-Jan 20 15:01:18 raspberrypi python3[570]: </html>
-Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
-Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - INFO - Ping result: False
-...skipping...
-● monitor.service - Device Monitor Service
-     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
-     Active: active (running) since Mon 2025-01-20 02:13:01 -03; 12h ago
-   Main PID: 570 (python3)
-      Tasks: 1 (limit: 760)
-        CPU: 53.003s
-     CGroup: /system.slice/monitor.service
-             └─570 /usr/bin/python3 device_monitor.py
+# Setup basic console logging first
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
-Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
-Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
-Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
-Jan 20 15:01:18 raspberrypi python3[570]:         });
-Jan 20 15:01:18 raspberrypi python3[570]:     </script>
-Jan 20 15:01:18 raspberrypi python3[570]: </body>
-Jan 20 15:01:18 raspberrypi python3[570]: </html>
-Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
-Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - INFO - Ping result: False
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-lines 1-19/19 (END)
-infoactive@raspberrypi:/var/www/kiosk $ journalctl -u monitor.service -n 50
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>The .htaccess file co>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>Redirects and rewriti>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>It is possible that y>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>There are Many Wa>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <ul>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Edit>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         </ul>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>The easiest way to ed>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>How to Edit .htac>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>Before you do anythin>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>Open the File Man>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <ol>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Log into cPa>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>In the Files>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Check the bo>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Make sure&nb>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Click&nbsp;<>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Look for the>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 </ol>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>To Edit the .htac>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <ol>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Right click >
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>A dialogue b>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Edit the fil>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Click&nbsp;<>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Test your we>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Once complet>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                                 </ol>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                         </div>
-Jan 20 15:01:18 raspberrypi python3[570]:                                                 </div>
-Jan 20 15:01:18 raspberrypi python3[570]:                                         </div>
-Jan 20 15:01:18 raspberrypi python3[570]:                                 </div>
-Jan 20 15:01:18 raspberrypi python3[570]:         </div>
-Jan 20 15:01:18 raspberrypi python3[570]:         <div style="clear:left;"></div>
-Jan 20 15:01:18 raspberrypi python3[570]:         </div>
-Jan 20 15:01:18 raspberrypi python3[570]:         <div id="bottom404"></div>
-Jan 20 15:01:18 raspberrypi python3[570]: </div>
-Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
-Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
-Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
-Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
-Jan 20 15:01:18 raspberrypi python3[570]:         });
-Jan 20 15:01:18 raspberrypi python3[570]:     </script>
-Jan 20 15:01:18 raspberrypi python3[570]: </body>
-Jan 20 15:01:18 raspberrypi python3[570]: </html>
-Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
-lines 1-49
+print("Starting device monitor script")
+logging.info("Initializing device monitor")
+
+try:
+    import requests
+    logging.info("Successfully imported requests")
+except ImportError as e:
+    logging.error(f"Failed to import requests: {e}")
+    sys.exit(1)
+
+class DeviceMonitor:
+    def __init__(self):
+        try:
+            logging.info("Initializing DeviceMonitor class")
+            self.content_dir = '/var/www/kiosk'
+            self.api_url = 'https://vinculo.com.py/new-player/admin/api'
+            self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
+            self.device_id = 'device_20250119_06395bce'
+            logging.info(f"Content directory: {self.content_dir}")
+            logging.info(f"API URL: {self.api_url}")
+            logging.info(f"Device ID: {self.device_id}")
+        except Exception as e:
+            logging.error(f"Error in __init__: {e}")
+            raise
+
+    def get_system_info(self):
+        info = {}
+        try:
+            # Disk info
+            disk = subprocess.check_output(['df', '-h', '/']).decode().split('\n')[1].split()
+            info['disk_total'] = disk[1]
+            info['disk_used'] = disk[2]
+            info['disk_percent'] = disk[4]
+            logging.info(f"System info collected: {info}")
+        except Exception as e:
+            logging.error(f"Error getting system info: {e}")
+            info['error'] = str(e)
+        return info
+
+    def send_ping(self):
+        try:
+            system_info = self.get_system_info()
+            
+            data = {
+                'status': {
+                    'disk': system_info,
+                    'timestamp': datetime.now().isoformat()
+                }
+            }
+            
+            headers = {
+                'X-API-Key': self.api_key,
+                'X-Device-Id': self.device_id,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'InfoActive-Kiosk/1.0'
+            }
+            
+            logging.info(f"Sending ping to {self.api_url}/devices.php")
+            logging.debug(f"Headers: {headers}")
+            logging.debug(f"Data: {data}")
+            
+            response = requests.post(
+                f"{self.api_url}/devices.php", 
+                data=json.dumps(data),
+                headers=headers,
+                timeout=10
+            )
+            
+            logging.info(f"Response status code: {response.status_code}")
+            logging.info(f"Response text: {response.text}")
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Network error sending ping: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"Error sending ping: {e}")
+            return False
+
+    def run(self):
+        logging.info("Starting main loop")
+        while True:
+            try:
+                result = self.send_ping()
+                logging.info(f"Ping result: {result}")
+                time.sleep(60)
+            except KeyboardInterrupt:
+                logging.info("Shutting down")
+                break
+            except Exception as e:
+                logging.error(f"Error in main loop: {e}")
+                time.sleep(60)
+
+if __name__ == "__main__":
+    try:
+        logging.info("Creating DeviceMonitor instance")
+        monitor = DeviceMonitor()
+        logging.info("Starting monitor")
+        monitor.run()
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        sys.exit(1)
