@@ -3,11 +3,19 @@ Description=Browser Manager Service
 After=network.target
 
 [Service]
+Type=simple
 ExecStart=/usr/bin/python3 /var/www/kiosk/manage_browser.py
 Restart=always
 User=pi
+Group=pi
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
+# Add supplementary groups for display access
+SupplementaryGroups=video input gpio
+# Working directory
+WorkingDirectory=/var/www/kiosk
+# Give a reasonable amount of time for the service to start
+TimeoutStartSec=60
 
 [Install]
 WantedBy=multi-user.target
