@@ -32,8 +32,10 @@ def start_chromium():
             '--check-for-update-interval=31536000',  # Check for updates once a year
             '--disable-features=TranslateUI',  # Disable translation UI
             '--autoplay-policy=no-user-gesture-required',  # Allow autoplay
-            'http://localhost'  # Your local URL
+            'https://vinculo.com.py/new-player/admin/display'  # Updated URL
         ]
+        
+        logging.info("Starting Chromium with command: %s", ' '.join(cmd))
         
         # Use subprocess.Popen to keep the process running
         process = subprocess.Popen(cmd)
