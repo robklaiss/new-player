@@ -1,11 +1,26 @@
-infoactive@raspberrypi:/var/www/kiosk $ sudo journalctl -u monitor.service -f
-Jan 20 15:42:43 raspberrypi python3[4800]:     <script type="text/javascript">
-Jan 20 15:42:43 raspberrypi python3[4800]:         $(function () {
-Jan 20 15:42:43 raspberrypi python3[4800]:             $('.expander').simpleexpand();
-Jan 20 15:42:43 raspberrypi python3[4800]:             prettyPrint();
-Jan 20 15:42:43 raspberrypi python3[4800]:         });
-Jan 20 15:42:43 raspberrypi python3[4800]:     </script>
-Jan 20 15:42:43 raspberrypi python3[4800]: </body>
-Jan 20 15:42:43 raspberrypi python3[4800]: </html>
-Jan 20 15:42:43 raspberrypi python3[4800]: 2025-01-20 15:42:43,047 - ERROR - Network error sending ping: 404 Client Error: Not Found for url: https://vinculo.com.py/new-player/admin/api/devices.php
-Jan 20 15:42:43 raspberrypi python3[4800]: 2025-01-20 15:42:43,047 - INFO - Ping result: False
+$ python3 -c "
+import requests
+import json
+
+api_url = 'https://vinculo.com.py/new-player/api'
+api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
+device_id = 'device_20250119_06395bce'
+
+try:
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    
+    data = {
+        'device_id': device_id,
+        'status': 'checking_connection',
+        'timestamp': '2025-01-20T18:11:16-03:00'
+    }
+    
+    response = requests.post(f'{api_url}/device/status', headers=headers, json=data, timeout=10)
+    print(f'Connection Status: {response.status_code}')
+    print(f'Response: {response.text}')
+except Exception as e:
+    print(f'Error connecting to server: {e}')
+"
