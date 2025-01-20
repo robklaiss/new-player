@@ -57,10 +57,10 @@ function showMessage(message, type) {
 // Load and display devices
 async function loadDevices() {
     try {
-        const response = await fetch(`${API_BASE}/admin/devices.php`);
+        const response = await fetch(`${API_BASE}/api/devices.php`);
         
         if (!response.ok) {
-            throw new Error(`Failed to load devices: ${response.statusText}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
