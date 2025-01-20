@@ -1,2 +1,122 @@
-infoactive@raspberrypi:/var/www/kiosk/raspberry-files $ sudo tail -n 50 /var/log/browser_manager.log
-tail: cannot open '/var/log/browser_manager.log' for reading: No such file or directory
+infoactive@raspberrypi:/var/www/kiosk $ sudo systemctl status monitor.service
+● monitor.service - Device Monitor Service
+     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2025-01-20 02:13:01 -03; 12h ago
+   Main PID: 570 (python3)
+      Tasks: 1 (limit: 760)
+        CPU: 53.003s
+     CGroup: /system.slice/monitor.service
+             └─570 /usr/bin/python3 device_monitor.py
+
+Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
+Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
+Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
+Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
+Jan 20 15:01:18 raspberrypi python3[570]:         });
+Jan 20 15:01:18 raspberrypi python3[570]:     </script>
+Jan 20 15:01:18 raspberrypi python3[570]: </body>
+Jan 20 15:01:18 raspberrypi python3[570]: </html>
+Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
+Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - INFO - Ping result: False
+...skipping...
+● monitor.service - Device Monitor Service
+     Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2025-01-20 02:13:01 -03; 12h ago
+   Main PID: 570 (python3)
+      Tasks: 1 (limit: 760)
+        CPU: 53.003s
+     CGroup: /system.slice/monitor.service
+             └─570 /usr/bin/python3 device_monitor.py
+
+Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
+Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
+Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
+Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
+Jan 20 15:01:18 raspberrypi python3[570]:         });
+Jan 20 15:01:18 raspberrypi python3[570]:     </script>
+Jan 20 15:01:18 raspberrypi python3[570]: </body>
+Jan 20 15:01:18 raspberrypi python3[570]: </html>
+Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
+Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - INFO - Ping result: False
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+lines 1-19/19 (END)
+infoactive@raspberrypi:/var/www/kiosk $ journalctl -u monitor.service -n 50
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>The .htaccess file co>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>Redirects and rewriti>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>It is possible that y>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>There are Many Wa>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <ul>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Edit>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                                 <li>Use >
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         </ul>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>The easiest way to ed>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>How to Edit .htac>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <p>Before you do anythin>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>Open the File Man>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <ol>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Log into cPa>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>In the Files>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Check the bo>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Make sure&nb>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Click&nbsp;<>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Look for the>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 </ol>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <h4><u>To Edit the .htac>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 <ol>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Right click >
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>A dialogue b>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Edit the fil>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Click&nbsp;<>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Test your we>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                         <li>Once complet>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                                 </ol>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                         </div>
+Jan 20 15:01:18 raspberrypi python3[570]:                                                 </div>
+Jan 20 15:01:18 raspberrypi python3[570]:                                         </div>
+Jan 20 15:01:18 raspberrypi python3[570]:                                 </div>
+Jan 20 15:01:18 raspberrypi python3[570]:         </div>
+Jan 20 15:01:18 raspberrypi python3[570]:         <div style="clear:left;"></div>
+Jan 20 15:01:18 raspberrypi python3[570]:         </div>
+Jan 20 15:01:18 raspberrypi python3[570]:         <div id="bottom404"></div>
+Jan 20 15:01:18 raspberrypi python3[570]: </div>
+Jan 20 15:01:18 raspberrypi python3[570]:     <script type="text/javascript">
+Jan 20 15:01:18 raspberrypi python3[570]:         $(function () {
+Jan 20 15:01:18 raspberrypi python3[570]:             $('.expander').simpleexpand();
+Jan 20 15:01:18 raspberrypi python3[570]:             prettyPrint();
+Jan 20 15:01:18 raspberrypi python3[570]:         });
+Jan 20 15:01:18 raspberrypi python3[570]:     </script>
+Jan 20 15:01:18 raspberrypi python3[570]: </body>
+Jan 20 15:01:18 raspberrypi python3[570]: </html>
+Jan 20 15:01:18 raspberrypi python3[570]: 2025-01-20 15:01:18,217 - ERROR - Network error sending ping: 404 Client Error: Not Foun>
+lines 1-49
