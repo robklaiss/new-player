@@ -28,7 +28,7 @@ class DeviceMonitor:
         try:
             logging.info("Initializing DeviceMonitor class")
             self.content_dir = '/var/www/kiosk'
-            self.api_url = 'https://vinculo.com.py/new-player/api'  # Updated API URL
+            self.api_url = 'https://vinculo.com.py/new-player/api/update.php'  # Updated to correct endpoint for POST requests
             self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
             self.device_id = 'device_20250119_06395bce'
             logging.info(f"Content directory: {self.content_dir}")
@@ -59,7 +59,10 @@ class DeviceMonitor:
             data = {
                 'status': {
                     'disk': system_info,
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': datetime.now().isoformat(),
+                    'version': '1.0',
+                    'current_video': None,
+                    'errors': None
                 }
             }
             
