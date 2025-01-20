@@ -1,21 +1,21 @@
 infoactive@raspberrypi:~ $ sudo systemctl status monitor.service
 ● monitor.service - Device Monitor Service
      Loaded: loaded (/etc/systemd/system/monitor.service; enabled; preset: enabled)
-     Active: active (running) since Mon 2025-01-20 01:49:15 -03; 19s ago
-   Main PID: 20508 (python3)
+     Active: active (running) since Mon 2025-01-20 02:02:11 -03; 12s ago
+   Main PID: 20767 (python3)
       Tasks: 1 (limit: 760)
-        CPU: 1.169s
+        CPU: 1.081s
      CGroup: /system.slice/monitor.service
-             └─20508 /usr/bin/python3 device_monitor.py
+             └─20767 /usr/bin/python3 device_monitor.py
 
-Jan 20 01:49:18 raspberrypi python3[20508]:     <script type="text/javascript">
-Jan 20 01:49:18 raspberrypi python3[20508]:         $(function () {
-Jan 20 01:49:18 raspberrypi python3[20508]:             $('.expander').simpleexpand();
-Jan 20 01:49:18 raspberrypi python3[20508]:             prettyPrint();
-Jan 20 01:49:18 raspberrypi python3[20508]:         });
-Jan 20 01:49:18 raspberrypi python3[20508]:     </script>
-Jan 20 01:49:18 raspberrypi python3[20508]: </body>
-Jan 20 01:49:18 raspberrypi python3[20508]: </html>
-Jan 20 01:49:18 raspberrypi python3[20508]: 2025-01-20 01:49:18,367 - ERROR - Network error sending ping: 404 Client Error: Not >
-Jan 20 01:49:18 raspberrypi python3[20508]: 2025-01-20 01:49:18,367 - INFO - Ping result: False
+Jan 20 02:02:13 raspberrypi python3[20767]:     <script type="text/javascript">
+Jan 20 02:02:13 raspberrypi python3[20767]:         $(function () {
+Jan 20 02:02:13 raspberrypi python3[20767]:             $('.expander').simpleexpand();
+Jan 20 02:02:13 raspberrypi python3[20767]:             prettyPrint();
+Jan 20 02:02:13 raspberrypi python3[20767]:         });
+Jan 20 02:02:13 raspberrypi python3[20767]:     </script>
+Jan 20 02:02:13 raspberrypi python3[20767]: </body>
+Jan 20 02:02:13 raspberrypi python3[20767]: </html>
+Jan 20 02:02:13 raspberrypi python3[20767]: 2025-01-20 02:02:13,453 - ERROR - Network error sending ping: 404 Client Error: Not >
+Jan 20 02:02:13 raspberrypi python3[20767]: 2025-01-20 02:02:13,454 - INFO - Ping result: False
 lines 1-19/19 (END)
