@@ -32,6 +32,9 @@ def start_chromium():
             '--check-for-update-interval=31536000',  # Check for updates once a year
             '--disable-features=TranslateUI',  # Disable translation UI
             '--autoplay-policy=no-user-gesture-required',  # Allow autoplay
+            '--allow-file-access-from-files',  # Allow local file access
+            '--disable-web-security',  # Disable web security for local files
+            '--user-data-dir=/home/infoactive/.config/chromium',  # Specify user data directory
             'file:///var/www/kiosk/index.html'  # Use local index.html
         ]
         
