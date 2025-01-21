@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directory of the player
-PLAYER_DIR="/var/www/kiosk"
+PLAYER_DIR="/var/www/kiosk/player"
 HTTP_PORT=8000
 LOG_FILE="/var/log/kiosk.log"
 

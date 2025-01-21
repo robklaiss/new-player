@@ -27,9 +27,6 @@ SupplementaryGroups=video input gpio
 # Start the kiosk
 ExecStartPre=/bin/sleep 10
 ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
-
-# Set working directory last to avoid CHDIR issues
-WorkingDirectory=/var/www/kiosk/player
 Restart=always
 RestartSec=10
 
