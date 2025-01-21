@@ -9,6 +9,13 @@ Conflicts=browser-manager.service
 
 [Service]
 Type=simple
+PermissionsStartOnly=true
+# Directory setup with root privileges
+ExecStartPre=/bin/mkdir -p /var/www/kiosk
+ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
+ExecStartPre=/bin/chmod 755 /var/www/kiosk
+
+# Switch to user context
 User=infoactive
 Group=infoactive
 Environment=DISPLAY=:0
