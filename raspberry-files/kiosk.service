@@ -9,12 +9,12 @@ Conflicts=browser-manager.service
 
 [Service]
 Type=simple
-PermissionsStartOnly=true
+
 # Directory setup with root privileges
 ExecStartPre=/bin/mkdir -p /var/www/kiosk/player
 ExecStartPre=/bin/cp -r /var/www/kiosk/raspberry-files/* /var/www/kiosk/player/
-ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
-ExecStartPre=/bin/chmod 755 /var/www/kiosk
+ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk/player
+ExecStartPre=/bin/chmod -R 755 /var/www/kiosk/player
 
 # Switch to user context
 User=infoactive
@@ -22,14 +22,12 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
-# Add supplementary groups for display access
 SupplementaryGroups=video input gpio
 
-# Wait for X server and set working directory
-ExecStartPre=/bin/sleep 10
-ExecStartPre=/usr/bin/bash -c 'cd /var/www/kiosk/player'
+# Start the kiosk
 WorkingDirectory=/var/www/kiosk/player
-ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash start-kiosk.sh
 Restart=always
 RestartSec=10
 
