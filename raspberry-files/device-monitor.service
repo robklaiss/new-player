@@ -1,0 +1,21 @@
+[Unit]
+Description=Kiosk Device Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=infoactive
+Group=infoactive
+WorkingDirectory=/var/www/kiosk/raspberry-files
+ExecStart=/usr/bin/python3 /var/www/kiosk/raspberry-files/device_monitor.py
+
+# Restart settings
+Restart=always
+RestartSec=60
+
+# Add some security measures
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
