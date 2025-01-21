@@ -25,9 +25,11 @@ Environment=HOME=/home/infoactive
 SupplementaryGroups=video input gpio
 
 # Start the kiosk
-WorkingDirectory=/var/www/kiosk/player
 ExecStartPre=/bin/sleep 10
-ExecStart=/bin/bash start-kiosk.sh
+ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
+
+# Set working directory last to avoid CHDIR issues
+WorkingDirectory=/var/www/kiosk/player
 Restart=always
 RestartSec=10
 
