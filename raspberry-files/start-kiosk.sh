@@ -65,14 +65,18 @@ start_browser() {
     # Start Chromium in kiosk mode
     chromium-browser \
         --kiosk \
+        --disable-gpu \
+        --no-sandbox \
         --noerrdialogs \
         --disable-session-crashed-bubble \
         --disable-infobars \
         --check-for-update-interval=31536000 \
         --disable-features=TranslateUI \
         --autoplay-policy=no-user-gesture-required \
-        --allow-file-access-from-files \
         --disable-web-security \
+        --ignore-certificate-errors \
+        --test-type \
+        --start-maximized \
         --user-data-dir=/home/infoactive/.config/chromium \
         "https://vinculo.com.py/new-player/player/?device=device_20250119_06395bce"
 }
