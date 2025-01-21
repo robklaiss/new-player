@@ -12,6 +12,7 @@ Type=simple
 PermissionsStartOnly=true
 # Directory setup with root privileges
 ExecStartPre=/bin/mkdir -p /var/www/kiosk
+ExecStartPre=/bin/cp -r /var/www/kiosk/raspberry-files/* /var/www/kiosk/
 ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
 ExecStartPre=/bin/chmod 755 /var/www/kiosk
 
