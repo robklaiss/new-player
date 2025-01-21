@@ -11,8 +11,8 @@ Conflicts=browser-manager.service
 Type=simple
 PermissionsStartOnly=true
 # Directory setup with root privileges
-ExecStartPre=/bin/mkdir -p /var/www/kiosk
-ExecStartPre=/bin/cp -r /var/www/new-player/raspberry-files/* /var/www/kiosk/
+ExecStartPre=/bin/mkdir -p /var/www/kiosk/player
+ExecStartPre=/bin/cp -r /var/www/kiosk/raspberry-files/* /var/www/kiosk/player/
 ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk
 ExecStartPre=/bin/chmod 755 /var/www/kiosk
 
@@ -24,9 +24,9 @@ Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
 # Add supplementary groups for display access
 SupplementaryGroups=video input gpio
-WorkingDirectory=/var/www/kiosk
+WorkingDirectory=/var/www/kiosk/player
 ExecStartPre=/bin/sleep 10
-ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
+ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
 Restart=always
 RestartSec=10
 
