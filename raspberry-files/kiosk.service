@@ -9,7 +9,10 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
-ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
+
+# Start both the kiosk and device monitor
+ExecStart=/bin/bash -c '/usr/bin/python3 /var/www/kiosk/player/device_monitor.py & /bin/bash /var/www/kiosk/player/start-kiosk.sh'
+
 Restart=always
 RestartSec=10
 
