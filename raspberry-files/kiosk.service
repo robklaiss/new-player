@@ -1,34 +1,17 @@
 [Unit]
 Description=Kiosk Video Player
-Wants=network-online.target
-After=network-online.target
-After=graphical.target
-After=multi-user.target
-After=lightdm.service
-Conflicts=browser-manager.service
+After=network.target
 
 [Service]
 Type=simple
-
-# Directory setup with root privileges
-ExecStartPre=/bin/mkdir -p /var/www/kiosk/player
-ExecStartPre=/bin/cp -r /var/www/kiosk/raspberry-files/* /var/www/kiosk/player/
-ExecStartPre=/bin/chown -R infoactive:infoactive /var/www/kiosk/player
-ExecStartPre=/bin/chmod -R 755 /var/www/kiosk/player
-
-# Switch to user context
 User=infoactive
 Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
-SupplementaryGroups=video input gpio
-
-# Start the kiosk
-ExecStartPre=/bin/sleep 10
 ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
 Restart=always
 RestartSec=10
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
