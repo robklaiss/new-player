@@ -6,11 +6,16 @@ import logging
 from datetime import datetime
 import subprocess
 import sys
+import socket
 
 # Setup basic console logging first
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('/var/log/device_monitor.log')
+    ]
 )
 
 print("Starting device monitor script")
@@ -28,7 +33,7 @@ class DeviceMonitor:
         try:
             logging.info("Initializing DeviceMonitor class")
             self.content_dir = '/var/www/kiosk/player'
-            self.api_url = 'https://vinculo.com.py/new-player/api/update.php'  # Updated to correct endpoint for POST requests
+            self.api_url = 'https://vinculo.com.py/new-player/api/update.php'
             self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
             self.device_id = 'device_20250119_06395bce'
             logging.info(f"Content directory: {self.content_dir}")
@@ -46,6 +51,22 @@ class DeviceMonitor:
             info['disk_total'] = disk[1]
             info['disk_used'] = disk[2]
             info['disk_percent'] = disk[4]
+
+            # Network info
+            hostname = socket.gethostname()
+            ip = subprocess.check_output(['hostname', '-I']).decode().strip()
+            info['hostname'] = hostname
+            info['ip'] = ip
+
+            # Memory info
+            mem = subprocess.check_output(['free', '-h']).decode().split('\n')[1].split()
+            info['memory_total'] = mem[1]
+            info['memory_used'] = mem[2]
+
+            # System uptime
+            uptime = subprocess.check_output(['uptime']).decode().strip()
+            info['uptime'] = uptime
+
             logging.info(f"System info collected: {info}")
         except Exception as e:
             logging.error(f"Error getting system info: {e}")
@@ -62,7 +83,9 @@ class DeviceMonitor:
                     'timestamp': datetime.now().isoformat(),
                     'version': '1.0',
                     'current_video': None,
-                    'errors': None
+                    'errors': None,
+                    'device_type': 'raspberry_pi',
+                    'online': True
                 }
             }
             

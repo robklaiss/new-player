@@ -74,7 +74,7 @@ start_browser() {
         --allow-file-access-from-files \
         --disable-web-security \
         --user-data-dir=/home/infoactive/.config/chromium \
-        "http://localhost:$HTTP_PORT/index.html"
+        "https://vinculo.com.py/new-player/player/?device=device_20250119_06395bce"
 }
 
 log "Starting kiosk script"
