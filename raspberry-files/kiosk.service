@@ -24,8 +24,11 @@ Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
 # Add supplementary groups for display access
 SupplementaryGroups=video input gpio
-WorkingDirectory=/var/www/kiosk/player
+
+# Wait for X server and set working directory
 ExecStartPre=/bin/sleep 10
+ExecStartPre=/usr/bin/bash -c 'cd /var/www/kiosk/player'
+WorkingDirectory=/var/www/kiosk/player
 ExecStart=/bin/bash /var/www/kiosk/player/start-kiosk.sh
 Restart=always
 RestartSec=10
