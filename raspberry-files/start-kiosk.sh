@@ -78,7 +78,7 @@ start_browser() {
         --test-type \
         --start-maximized \
         --user-data-dir=/home/infoactive/.config/chromium \
-        "https://vinculo.com.py/new-player/player/?device=device_20250119_06395bce"
+        "https://vinculo.com.py/new-player/kiosk/?device=device_20250119_06395bce"
 }
 
 log "Starting kiosk script"
