@@ -28,12 +28,54 @@ for i in $(seq 1 60); do
     sleep 1
 done
 
+# Function to check and optimize video
+check_video() {
+    cd "$KIOSK_DIR" || exit 1
+    
+    # Check if source video exists
+    if [ ! -f "sample.mp4" ]; then
+        log "ERROR: source video sample.mp4 not found"
+        return 1
+    }
+
+    # Check if optimized video exists and is valid
+    if [ ! -f "optimized.mp4" ] || ! ffmpeg -v error -i optimized.mp4 -f null - >/dev/null 2>&1; then
+        log "Re-encoding video for Raspberry Pi..."
+        
+        # Remove old file if exists
+        rm -f optimized.mp4
+        
+        # Encode for maximum compatibility
+        ffmpeg -i sample.mp4 \
+            -c:v h264 \
+            -profile:v baseline \
+            -level 3.0 \
+            -pix_fmt yuv420p \
+            -vf "scale=1280:720" \
+            -b:v 2M \
+            -maxrate 2M \
+            -bufsize 2M \
+            -movflags +faststart \
+            -y \
+            optimized.mp4
+            
+        if [ $? -ne 0 ]; then
+            log "ERROR: Video optimization failed"
+            return 1
+        fi
+        
+        log "Video optimization complete"
+    else
+        log "Optimized video already exists and is valid"
+    fi
+}
+
 # Function to start HTTP server
 start_http_server() {
     cd "$KIOSK_DIR" || exit 1
     debug "Starting HTTP server in $KIOSK_DIR"
     
-    # Create a simple Python HTTP server with restart endpoint
+    # Create a simple Python HTTP server with restart endpoint and CORS support
     python3 -c '
 import http.server
 import socketserver
@@ -41,7 +83,17 @@ import json
 import os
 import signal
 
-class KioskHandler(http.server.SimpleHTTPRequestHandler):
+class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Device-Id")
+        super().end_headers()
+        
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+        
     def do_POST(self):
         if self.path == "/restart":
             self.send_response(200)
@@ -59,7 +111,7 @@ class KioskHandler(http.server.SimpleHTTPRequestHandler):
         # Suppress logging for cleaner output
         pass
 
-with socketserver.TCPServer(("", 8000), KioskHandler) as httpd:
+with socketserver.TCPServer(("", 8000), CORSHTTPRequestHandler) as httpd:
     print("Server started at port 8000")
     httpd.serve_forever()
 ' &
@@ -157,6 +209,9 @@ EOF
 # Remove any existing Chromium preferences that might interfere
 rm -rf ~/.config/chromium/Default/Preferences
 rm -rf ~/.config/chromium/Singleton*
+
+# Check and optimize video
+check_video || exit 1
 
 # Start HTTP server
 start_http_server || exit 1

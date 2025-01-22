@@ -2,17 +2,17 @@
 const API_CONFIG = {
     // Use local video file for testing
     TESTING_MODE: true,
-    LOCAL_VIDEO: 'optimized.mp4',
+    LOCAL_VIDEO: 'http://localhost:8000/optimized.mp4',
     // API settings
-    BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://vinculo.com.py/new-player/api',
+    BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
     DEVICE_ID: 'device_20250119_06395bce', // Your registered device ID
     UPDATE_INTERVAL: 60000, // Status update interval in milliseconds (1 minute)
     CONTENT_CHECK_INTERVAL: 30000,  // Check for new content every 30 seconds
     ENDPOINTS: {
-        CONTENT: '/content.php',
-        UPDATE: '/update.php',
-        STATUS: '/status.php'
+        CONTENT: '/api/content.php',
+        UPDATE: '/api/update.php',
+        STATUS: '/api/status.php'
     },
     VIDEO_CONFIG: {
         autoRestart: true,
