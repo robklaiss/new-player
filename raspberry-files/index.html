@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+cd "/System/Volumes/Data/Proyectos Temp/infoactive 2024/new-player"
+git add raspberry-files/index.html<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,245 +12,105 @@
     <style>
         body {
             margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #FF0000; /* Bright red background */
+            padding: 20px;
+            background: #FF0000;
             color: white;
             font-family: Arial, sans-serif;
-            font-size: 24px; /* Large text */
-            overflow: hidden;
-        }
-        #videoPlayer {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+            font-size: 24px;
         }
         #debugInfo {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: yellow;
-            color: black;
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
-            border-radius: 5px;
-            font-size: 18px;
-            z-index: 1000;
+            margin: 20px;
+            border-radius: 10px;
             white-space: pre-line;
-            text-align: left;
-            border: 5px solid white;
         }
-        #errorMessage {
-            display: none;
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            text-align: center;
-            font-size: 18px;
-            z-index: 1001;
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .status {
+            color: #2196F3;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <video id="videoPlayer" autoplay loop muted playsinline></video>
-    <div id="errorMessage"></div>
-    <div id="debugInfo">Initializing...</div>
+    <div id="debugInfo">Initializing system...</div>
+    <video id="videoPlayer" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: -1;" autoplay loop muted playsinline></video>
 
-    <script src="config.js"></script>
     <script>
-        let lastHeartbeat = Date.now();
-        let currentVideoUrl = '';
         const debugInfo = document.getElementById('debugInfo');
-        
-        function updateDebugInfo(message) {
-            const info = `
-Last Update: ${new Date().toLocaleTimeString()}
-Status: ${message}
-Current URL: ${currentVideoUrl || 'None'}
-Device ID: ${API_CONFIG.DEVICE_ID}
-API Base URL: ${API_CONFIG.BASE_URL}
-            `;
-            console.log(info); // Log to console as well
-            debugInfo.textContent = info;
-        }
-        
-        // Function to show error message
-        function showError(message) {
-            console.error('Error:', message);
-            updateDebugInfo('Error: ' + message);
-            const errorMessage = document.getElementById('errorMessage');
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 10000); // Show for 10 seconds
+        const videoPlayer = document.getElementById('videoPlayer');
+        let initSteps = [];
+
+        function addDebugStep(message, type = 'status') {
+            const timestamp = new Date().toLocaleTimeString();
+            initSteps.push(`[${timestamp}] <span class="${type}">${message}</span>`);
+            debugInfo.innerHTML = initSteps.join('\n');
         }
 
-        // Function to check for new content
-        async function checkContent() {
+        // Start initialization
+        addDebugStep('Page loaded successfully');
+
+        // Load config
+        const script = document.createElement('script');
+        script.src = 'config.js';
+        script.onload = async () => {
+            addDebugStep('Config loaded successfully', 'success');
+            addDebugStep(`API URL: ${API_CONFIG.BASE_URL}`, 'status');
+            addDebugStep(`Device ID: ${API_CONFIG.DEVICE_ID}`, 'status');
+
             try {
-                updateDebugInfo('Checking for content...');
-                const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`;
-                console.log('Fetching content from:', url);
-                
-                const response = await fetch(url, {
+                // Test API connection
+                addDebugStep('Testing API connection...');
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
                     headers: {
                         'X-API-Key': API_CONFIG.API_KEY
                     }
                 });
-                
+
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('Content response:', data);
+                addDebugStep('API connection successful', 'success');
                 
                 if (data.content_url) {
-                    updateDebugInfo('Content URL received: ' + data.content_url);
-                    await updateVideo(data.content_url);
+                    addDebugStep(`Content URL received: ${data.content_url}`, 'success');
+                    videoPlayer.src = data.content_url;
+                    
+                    videoPlayer.onloadeddata = () => {
+                        addDebugStep('Video loaded successfully', 'success');
+                        debugInfo.style.opacity = '0.5';
+                        setTimeout(() => {
+                            debugInfo.style.opacity = '0';
+                        }, 5000);
+                    };
+                    
+                    videoPlayer.onerror = (e) => {
+                        addDebugStep(`Video error: ${videoPlayer.error?.message || 'Unknown error'}`, 'error');
+                    };
+                    
+                    await videoPlayer.play();
                 } else {
-                    updateDebugInfo('No content URL received from server');
+                    addDebugStep('No content URL in response', 'error');
                 }
             } catch (error) {
-                console.error('Error checking content:', error);
-                showError('Error checking for new content: ' + error.message);
+                addDebugStep(`Error: ${error.message}`, 'error');
             }
-        }
+        };
 
-        // Function to update video source
-        async function updateVideo(videoUrl) {
-            if (!videoUrl) {
-                showError('No video URL provided');
-                return;
-            }
-            
-            updateDebugInfo('Loading video: ' + videoUrl);
-            const video = document.getElementById('videoPlayer');
-            
-            try {
-                video.src = videoUrl;
-                currentVideoUrl = videoUrl;
-                
-                video.onloadeddata = () => {
-                    updateDebugInfo('Video loaded successfully');
-                };
-                
-                video.onerror = (e) => {
-                    showError(`Video error: ${video.error?.message || 'Unknown error'}`);
-                };
-                
-                await video.play();
-            } catch (error) {
-                console.error('Error playing video:', error);
-                showError('Error playing video: ' + error.message);
-            }
-        }
+        script.onerror = () => {
+            addDebugStep('Failed to load config.js', 'error');
+        };
 
-        // Function to report status to server
-        async function reportStatus(status, error = null) {
-            try {
-                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': API_CONFIG.API_KEY
-                    },
-                    body: JSON.stringify({
-                        device_id: API_CONFIG.DEVICE_ID,
-                        status: status,
-                        error: error,
-                        current_content: currentVideoUrl,
-                        timestamp: new Date().toISOString()
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to update status');
-                }
-            } catch (error) {
-                console.error('Error reporting status:', error);
-            }
-        }
-
-        // Function to register service worker
-        async function registerServiceWorker() {
-            if ('serviceWorker' in navigator) {
-                try {
-                    // Unregister any existing service workers first
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) {
-                        await registration.unregister();
-                    }
-                    
-                    // Register new service worker
-                    const registration = await navigator.serviceWorker.register('service-worker.js', {
-                        scope: '/'
-                    });
-                    console.log('ServiceWorker registration successful:', registration);
-                    
-                    // Wait for the service worker to be ready
-                    await navigator.serviceWorker.ready;
-                    console.log('ServiceWorker is ready');
-                    
-                    // Listen for messages from service worker
-                    navigator.serviceWorker.addEventListener('message', event => {
-                        if (event.data.type === 'contentUpdate') {
-                            updateVideo(event.data.content.video);
-                        } else if (event.data.type === 'commands') {
-                            // Handle commands from server
-                            event.data.commands.forEach(command => {
-                                switch (command.action) {
-                                    case 'reload':
-                                        window.location.reload();
-                                        break;
-                                    case 'refresh':
-                                        navigator.serviceWorker.controller.postMessage({
-                                            type: 'checkContent'
-                                        });
-                                        break;
-                                }
-                            });
-                        }
-                    });
-                    
-                    // Request initial content
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            type: 'checkContent'
-                        });
-                    }
-                } catch (error) {
-                    console.error('ServiceWorker registration failed:', error);
-                    showError('Failed to initialize offline support. Please check browser settings.');
-                }
-            } else {
-                showError('Service workers are not supported. Please use a modern browser.');
-            }
-        }
-
-        // Initialize
-        window.addEventListener('load', async () => {
-            await registerServiceWorker().catch(console.error);
-            
-            updateDebugInfo('Page loaded, checking for content...');
-            await checkContent();
-            
-            // Set up periodic checks
-            setInterval(checkContent, API_CONFIG.CONTENT_CHECK_INTERVAL);
-            
-            // Set up status reporting
-            setInterval(() => {
-                const video = document.getElementById('videoPlayer');
-                reportStatus(video.paused ? 'paused' : 'playing');
-            }, API_CONFIG.UPDATE_INTERVAL);
-        });
+        document.body.appendChild(script);
     </script>
 </body>
 </html>
