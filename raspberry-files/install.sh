@@ -1,106 +1,92 @@
 #!/bin/bash
 
-# Enable error handling
+# Exit on error
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Configuration
+KIOSK_DIR="/var/www/kiosk"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Log functions
+# Logging function
 log() {
-    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-warn() {
-    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
-}
+# Install system dependencies
+log "Installing system dependencies..."
+sudo apt-get update
+sudo apt-get install -y \
+    chromium-browser \
+    ffmpeg \
+    fontconfig \
+    python3 \
+    x11-xserver-utils \
+    unclutter \
+    xdotool \
+    fonts-liberation \
+    libegl1 \
+    libgl1-mesa-dri \
+    libgles2
 
-error() {
-    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
-    exit 1
-}
+# Create kiosk directory
+log "Setting up kiosk directory..."
+sudo mkdir -p "$KIOSK_DIR"
+sudo chown -R $USER:$USER "$KIOSK_DIR"
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    error "Please run as root (use sudo)"
+# Copy files
+log "Copying kiosk files..."
+cp -r "$REPO_DIR"/* "$KIOSK_DIR/"
+chmod +x "$KIOSK_DIR/start-kiosk.sh"
+
+# Setup systemd service
+log "Setting up systemd service..."
+sudo tee /etc/systemd/system/kiosk.service > /dev/null << EOL
+[Unit]
+Description=Kiosk Video Player
+After=network.target
+
+[Service]
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/$USER/.Xauthority
+Type=simple
+User=$USER
+ExecStart=/bin/bash $KIOSK_DIR/start-kiosk.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Setup X11 configuration
+log "Setting up X11 configuration..."
+sudo tee /etc/X11/xorg.conf.d/10-monitor.conf > /dev/null << EOL
+Section "Monitor"
+    Identifier "HDMI-1"
+    Option "DPMS" "false"
+EndSection
+
+Section "ServerFlags"
+    Option "BlankTime" "0"
+    Option "StandbyTime" "0"
+    Option "SuspendTime" "0"
+    Option "OffTime" "0"
+EndSection
+EOL
+
+# Setup video device permissions
+log "Setting up video permissions..."
+sudo usermod -a -G video $USER
+if [ -e "/dev/video10" ]; then
+    sudo chmod 666 /dev/video10
 fi
 
-# Install required packages
-log "Installing required packages..."
-apt update
-apt install -y git chromium-browser unclutter xserver-xorg x11-xserver-utils python3-flask python3-requests lightdm openssh-client ffmpeg
+# Enable and start service
+log "Enabling and starting kiosk service..."
+sudo systemctl daemon-reload
+sudo systemctl enable kiosk.service
+sudo systemctl restart kiosk.service
 
-# Enable and start lightdm
-log "Enabling display manager..."
-systemctl enable lightdm
-systemctl start lightdm
-
-# Create and set up directories
-log "Setting up directories..."
-mkdir -p /var/www
-cd /var/www
-
-# Remove existing kiosk directory if it exists
-if [ -d "kiosk" ]; then
-    log "Removing existing kiosk directory..."
-    rm -rf kiosk
-fi
-
-# Try cloning with SSH first, fall back to HTTPS
-log "Cloning repository..."
-git config --global --add safe.directory /var/www/kiosk
-
-if [ -f "/home/pi/.ssh/id_ed25519" ]; then
-    log "Found SSH key, attempting SSH clone..."
-    sudo -u pi git clone --depth 1 git@github.com:robklaiss/new-player.git kiosk || {
-        warn "SSH clone failed, trying HTTPS..."
-        git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk || {
-            error "Failed to clone repository. Please ensure you have access and try again."
-        }
-    }
-else
-    warn "No SSH key found at /home/pi/.ssh/id_ed25519"
-    warn "To set up SSH access:"
-    warn "1. Run: sudo -u pi ssh-keygen -t ed25519 -C \"raspberry-kiosk\""
-    warn "2. Display the key: sudo -u pi cat /home/pi/.ssh/id_ed25519.pub"
-    warn "3. Add the key to GitHub under repository Deploy Keys"
-    warn ""
-    warn "Trying HTTPS clone..."
-    git clone --depth 1 https://github.com/robklaiss/new-player.git kiosk || {
-        error "Failed to clone repository. Please ensure you have access and try again."
-    }
-fi
-
-# Optimize video for playback
-log "Optimizing video for playback..."
-cd /var/www/kiosk/raspberry-files
-ffmpeg -i sample.mp4 -vf scale=1280:720 -c:v libx264 -preset ultrafast optimized.mp4
-
-# Set up service files
-log "Setting up service files..."
-cp /var/www/kiosk/raspberry-files/kiosk.service /etc/systemd/system/
-chmod +x /var/www/kiosk/raspberry-files/start-kiosk.sh
-cp /var/www/kiosk/raspberry-files/start-kiosk.sh /var/www/kiosk/
-
-# Set correct permissions
-log "Setting permissions..."
-chown -R pi:pi /var/www/kiosk
-usermod -a -G video pi
-
-# Create X11 socket directory with correct permissions
-log "Setting up X11 socket directory..."
-mkdir -p /tmp/.X11-unix
-chmod 1777 /tmp/.X11-unix
-
-# Reload systemd and enable services
-log "Enabling services..."
-systemctl daemon-reload
-systemctl enable kiosk.service
-systemctl restart kiosk.service
-
-log "Installation complete!"
-log "You can check the status with: systemctl status kiosk.service"
-log "View logs with: tail -f /var/log/kiosk.log"
+log "Installation complete! The kiosk will start automatically on boot."
+log "To check the status, run: sudo systemctl status kiosk.service"
+log "To view logs, run: journalctl -u kiosk.service -f"

@@ -1,32 +1,94 @@
 #!/bin/bash
 
-# Directory of the kiosk files
+# Set error handling
+set -e
+
+# Configuration
 KIOSK_DIR="/var/www/kiosk/raspberry-files"
 HTTP_PORT=8000
-LOG_FILE="/var/log/kiosk.log"
+CHROME_FLAGS="
+    --kiosk 
+    --noerrdialogs 
+    --disable-infobars
+    --autoplay-policy=no-user-gesture-required
+    --check-for-update-interval=31536000
+    --disable-gpu-vsync
+    --ignore-gpu-blocklist
+    --disable-gpu-driver-bug-workarounds
+    --enable-gpu-rasterization
+    --enable-zero-copy
+    --disable-features=UseOzonePlatform
+    --use-gl=egl
+    --force-device-scale-factor=1
+"
 
 # Logging function
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
 # Debug function
 debug() {
-    log "DEBUG: $1"
-    if [ -n "$2" ]; then
-        log "DEBUG: Command output: $2"
+    if [ "${DEBUG:-0}" = "1" ]; then
+        log "DEBUG: $1"
     fi
 }
 
-# Wait for X server
-for i in $(seq 1 60); do
-    if xset -q > /dev/null 2>&1; then
-        debug "X server is ready"
-        break
+# Function to setup system requirements
+setup_system() {
+    # Create kiosk directory if it doesn't exist
+    if [ ! -d "$KIOSK_DIR" ]; then
+        sudo mkdir -p "$KIOSK_DIR"
     fi
-    debug "Waiting for X server... ($i/60)"
-    sleep 1
-done
+    
+    # Set proper permissions
+    sudo chown -R $USER:$USER "$KIOSK_DIR"
+    
+    # Install required packages if missing
+    for pkg in chromium-browser ffmpeg fontconfig python3; do
+        if ! dpkg -l | grep -q "^ii  $pkg "; then
+            log "Installing $pkg..."
+            sudo apt-get update
+            sudo apt-get install -y $pkg
+        fi
+    done
+    
+    # Setup fonts
+    if [ ! -f /etc/fonts/fonts.conf ]; then
+        log "Setting up font configuration..."
+        sudo mkdir -p /etc/fonts
+        sudo tee /etc/fonts/fonts.conf > /dev/null << EOL
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+    <dir>/usr/share/fonts</dir>
+    <dir>/usr/local/share/fonts</dir>
+    <dir prefix="xdg">fonts</dir>
+    <cachedir>/var/cache/fontconfig</cachedir>
+    <cachedir prefix="xdg">fontconfig</cachedir>
+</fontconfig>
+EOL
+        sudo fc-cache -f -v
+    fi
+    
+    # Setup video device permissions
+    if [ -e "/dev/video10" ]; then
+        sudo chmod 666 /dev/video10
+    fi
+    
+    # Setup X11 environment
+    export DISPLAY=:0
+    xset -dpms     # Disable DPMS (Energy Star) features
+    xset s off     # Disable screen saver
+    xset s noblank # Don't blank the video device
+    
+    # Disable screen blanking in X
+    if command -v xset >/dev/null 2>&1; then
+        xset s off
+        xset s noblank
+        xset -dpms
+    fi
+}
 
 # Function to check and optimize video
 check_video() {
@@ -178,37 +240,11 @@ start_browser() {
     done
 }
 
-log "Starting kiosk script"
+# Main script
+log "Starting kiosk setup..."
 
-# Kill existing processes
-log "Cleaning up existing processes..."
-pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill -f "chromium" || true
-sleep 2
-
-# Make sure all Chromium processes are really gone
-killall -9 chromium chromium-browser 2>/dev/null || true
-sleep 1
-
-# Set up window manager to prevent screen blanking
-xset s off
-xset s noblank
-xset -dpms
-
-# Set up emergency exit key binding (Ctrl+Alt+Q)
-xmodmap -e "keycode 24 = q Q q Q"
-xmodmap -e "keycode 37 = Control_L Control_L Control_L Control_L"
-xmodmap -e "keycode 64 = Alt_L Alt_L Alt_L Alt_L"
-
-# Set up key binding
-xbindkeys -f - << EOF
-"pkill -f chromium && sudo systemctl stop kiosk.service"
-  Control + Alt + q
-EOF
-
-# Remove any existing Chromium preferences that might interfere
-rm -rf ~/.config/chromium/Default/Preferences
-rm -rf ~/.config/chromium/Singleton*
+# Setup system requirements
+setup_system || exit 1
 
 # Check and optimize video
 check_video || exit 1
@@ -216,8 +252,22 @@ check_video || exit 1
 # Start HTTP server
 start_http_server || exit 1
 
-# Start browser
-start_browser
+# Clear Chromium cache
+rm -rf ~/.cache/chromium/Default/Cache/*
+rm -rf ~/.config/chromium/Default/Cache/*
+
+# Start Chromium in kiosk mode
+log "Starting Chromium..."
+chromium-browser \
+    $CHROME_FLAGS \
+    --app=http://localhost:$HTTP_PORT/index.html \
+    --user-data-dir=/tmp/chromium \
+    --no-first-run \
+    --start-maximized \
+    --window-position=0,0 \
+    --window-size=1920,1080 \
+    --disable-features=TranslateUI \
+    --disable-session-crashed-bubble
 
 # Add trap for cleanup
 trap 'cleanup' EXIT SIGTERM SIGINT
