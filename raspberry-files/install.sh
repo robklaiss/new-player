@@ -19,57 +19,45 @@ log "Installing system dependencies..."
 sudo apt-get update
 sudo apt-get install -y \
     chromium-browser \
-    ffmpeg \
-    fontconfig \
+    apache2 \
+    php \
     python3 \
+    python3-pip \
     x11-xserver-utils \
     unclutter \
-    xdotool \
-    fonts-liberation \
-    libegl1 \
-    libgl1-mesa-dri \
-    libgles2 \
-    git
+    xdotool
 
-# Create kiosk directory and set permissions
-log "Setting up kiosk directory..."
+# Create web directory
+log "Setting up web directory..."
 sudo mkdir -p "$KIOSK_DIR"
 sudo chown -R $CURRENT_USER:$CURRENT_USER "$KIOSK_DIR"
-sudo chmod -R 755 "$KIOSK_DIR"
 
-# Set up Git configuration
-log "Setting up Git configuration..."
-git config --global --add safe.directory "$KIOSK_DIR"
-git config --global user.name "$CURRENT_USER"
-git config --global user.email "$CURRENT_USER@$(hostname)"
-
-# Copy files and set permissions
+# Copy files
 log "Copying kiosk files..."
-cp -r "$REPO_DIR"/* "$KIOSK_DIR/"
-chmod +x "$KIOSK_DIR/start-kiosk.sh"
-sudo chown -R $CURRENT_USER:$CURRENT_USER "$KIOSK_DIR"
+sudo cp -r "$REPO_DIR"/* "$KIOSK_DIR/"
+sudo rm "$KIOSK_DIR/install.sh"  # Don't copy install script
+
+# Set up Apache
+log "Setting up Apache..."
+sudo cp "$KIOSK_DIR/kiosk.conf" /etc/apache2/sites-available/
+sudo a2dissite 000-default.conf
+sudo a2ensite kiosk.conf
+sudo systemctl restart apache2
+
+# Set up services
+log "Setting up systemd services..."
+sudo cp "$KIOSK_DIR/kiosk.service" /etc/systemd/system/
+sudo cp "$KIOSK_DIR/device-monitor.service" /etc/systemd/system/
+
+# Create logs directory
+log "Setting up logs directory..."
+sudo mkdir -p "$KIOSK_DIR/logs"
+sudo chown -R www-data:www-data "$KIOSK_DIR/logs"
+
+# Set permissions
+log "Setting up permissions..."
+sudo chown -R www-data:www-data "$KIOSK_DIR/api"
 sudo chmod -R 755 "$KIOSK_DIR"
-
-# Setup systemd service
-log "Setting up systemd service..."
-sudo tee /etc/systemd/system/kiosk.service > /dev/null << EOL
-[Unit]
-Description=Kiosk Video Player
-After=network.target
-
-[Service]
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=$HOME_DIR/.Xauthority
-Type=simple
-User=$CURRENT_USER
-ExecStart=/bin/bash $KIOSK_DIR/start-kiosk.sh
-Restart=on-failure
-RestartSec=5
-WorkingDirectory=$KIOSK_DIR
-
-[Install]
-WantedBy=multi-user.target
-EOL
 
 # Setup X11 configuration
 log "Setting up X11 configuration..."
@@ -88,13 +76,6 @@ Section "ServerFlags"
 EndSection
 EOL
 
-# Setup video device permissions
-log "Setting up video permissions..."
-sudo usermod -a -G video $CURRENT_USER
-if [ -e "/dev/video10" ]; then
-    sudo chmod 666 /dev/video10
-fi
-
 # Create Xauthority if it doesn't exist
 touch "$HOME_DIR/.Xauthority"
 chown $CURRENT_USER:$CURRENT_USER "$HOME_DIR/.Xauthority"
@@ -108,10 +89,12 @@ autologin-user=$CURRENT_USER
 autologin-user-timeout=0
 EOL
 
-# Enable and start service
-log "Enabling and starting kiosk service..."
+# Reload and start services
+log "Starting services..."
 sudo systemctl daemon-reload
 sudo systemctl enable kiosk.service
+sudo systemctl enable device-monitor.service
+sudo systemctl restart device-monitor.service
 sudo systemctl restart kiosk.service
 
 log "Installation complete! The kiosk will start automatically on boot."
