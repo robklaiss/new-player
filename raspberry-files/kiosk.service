@@ -9,9 +9,10 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
+WorkingDirectory=/var/www/kiosk/player
 
 # Start the kiosk browser
-ExecStart=/bin/bash /var/www/kiosk/raspberry-files/start-kiosk.sh
+ExecStart=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost/index.html
 
 # Restart settings
 Restart=always
