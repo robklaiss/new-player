@@ -28,17 +28,27 @@ sudo apt-get install -y \
     fonts-liberation \
     libegl1 \
     libgl1-mesa-dri \
-    libgles2
+    libgles2 \
+    git
 
-# Create kiosk directory
+# Create kiosk directory and set permissions
 log "Setting up kiosk directory..."
 sudo mkdir -p "$KIOSK_DIR"
 sudo chown -R $CURRENT_USER:$CURRENT_USER "$KIOSK_DIR"
+sudo chmod -R 755 "$KIOSK_DIR"
 
-# Copy files
+# Set up Git configuration
+log "Setting up Git configuration..."
+git config --global --add safe.directory "$KIOSK_DIR"
+git config --global user.name "$CURRENT_USER"
+git config --global user.email "$CURRENT_USER@$(hostname)"
+
+# Copy files and set permissions
 log "Copying kiosk files..."
 cp -r "$REPO_DIR"/* "$KIOSK_DIR/"
 chmod +x "$KIOSK_DIR/start-kiosk.sh"
+sudo chown -R $CURRENT_USER:$CURRENT_USER "$KIOSK_DIR"
+sudo chmod -R 755 "$KIOSK_DIR"
 
 # Setup systemd service
 log "Setting up systemd service..."
