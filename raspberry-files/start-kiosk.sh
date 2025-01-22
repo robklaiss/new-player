@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Directory of the player
-PLAYER_DIR="/var/www/kiosk/player"
+# Directory of the kiosk files
+KIOSK_DIR="/var/www/kiosk/raspberry-files"
 HTTP_PORT=8000
 LOG_FILE="/var/log/kiosk.log"
 
@@ -19,99 +19,83 @@ debug() {
 }
 
 # Wait for X server
-for i in {1..30}; do
+for i in $(seq 1 60); do
     if xset -q > /dev/null 2>&1; then
-        log "X server is running"
+        debug "X server is ready"
         break
     fi
-    log "Waiting for X server... attempt $i"
+    debug "Waiting for X server... ($i/60)"
     sleep 1
 done
 
 # Function to start HTTP server
 start_http_server() {
-    cd "$PLAYER_DIR"
-    log "Starting HTTP server on port $HTTP_PORT"
-    python3 -m http.server $HTTP_PORT &
-    local pid=$!
-    echo $pid > /tmp/kiosk-http.pid
-    debug "HTTP server PID: $pid"
+    cd "$KIOSK_DIR" || exit 1
+    debug "Starting HTTP server in $KIOSK_DIR"
+    python3 -m http.server $HTTP_PORT > /dev/null 2>&1 &
     
-    # Wait for server to be ready
-    for i in {1..30}; do
+    # Wait for server to start
+    for i in $(seq 1 30); do
         if curl -s http://localhost:$HTTP_PORT > /dev/null; then
-            log "HTTP server is responding"
+            debug "HTTP server is running"
             return 0
         fi
-        log "Waiting for HTTP server... attempt $i"
+        debug "Waiting for HTTP server... ($i/30)"
         sleep 1
     done
-    log "Warning: HTTP server not responding after 30 seconds"
+    
+    log "ERROR: HTTP server failed to start"
     return 1
 }
 
 # Function to start browser in kiosk mode
 start_browser() {
-    log "Starting Chromium in kiosk mode"
+    debug "Starting Chromium in kiosk mode"
     
-    # Set display settings
-    xset s off
-    xset s noblank
-    xset -dpms
+    # Configure Chromium flags
+    CHROME_OPTS="--kiosk --disable-infobars --noerrdialogs"
+    CHROME_OPTS="$CHROME_OPTS --disable-translate --no-first-run"
+    CHROME_OPTS="$CHROME_OPTS --disable-pinch --overscroll-history-navigation=0"
+    CHROME_OPTS="$CHROME_OPTS --disable-features=TranslateUI"
+    CHROME_OPTS="$CHROME_OPTS --autoplay-policy=no-user-gesture-required"
     
-    # Hide cursor
-    unclutter -idle 0 &
+    # Clear cache and temporary files
+    rm -rf /home/infoactive/.config/chromium/Default/Cache/*
+    rm -rf /home/infoactive/.cache/chromium/*
     
-    # Start Chromium in kiosk mode
-    chromium-browser \
-        --kiosk \
-        --disable-gpu \
-        --no-sandbox \
-        --noerrdialogs \
-        --disable-session-crashed-bubble \
-        --disable-infobars \
-        --check-for-update-interval=31536000 \
-        --disable-features=TranslateUI \
-        --autoplay-policy=no-user-gesture-required \
-        --disable-web-security \
-        --ignore-certificate-errors \
-        --test-type \
-        --start-maximized \
-        --user-data-dir=/home/infoactive/.config/chromium \
-        "http://localhost:$HTTP_PORT/index.html"
+    # Start Chromium
+    chromium-browser $CHROME_OPTS "http://localhost:$HTTP_PORT" &
+    
+    # Wait for browser to start
+    sleep 5
+    debug "Browser started"
 }
 
 log "Starting kiosk script"
 
 # Kill existing processes
 pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill -f chromium || true
-pkill -f unclutter || true
-
-# Clean up old PID files
-rm -f /tmp/kiosk-http.pid
+pkill chromium || true
+pkill chromium-browser || true
 
 # Start HTTP server
 start_http_server || exit 1
 
 # Start browser
-start_browser || exit 1
+start_browser
 
-# Keep the script running
+# Keep script running
 while true; do
     # Check if HTTP server is running
     if ! curl -s http://localhost:$HTTP_PORT > /dev/null; then
-        log "HTTP server not responding, restarting..."
+        log "HTTP server died, restarting..."
         start_http_server
     fi
     
-    # Check if Chromium is running
-    if pgrep -f chromium > /dev/null; then
-        pid=$(pgrep -f chromium)
-        if ! ps -p $pid > /dev/null; then
-            log "Chromium not running, restarting..."
-            start_browser
-        fi
+    # Check if browser is running
+    if ! pgrep chromium > /dev/null; then
+        log "Browser died, restarting..."
+        start_browser
     fi
     
     sleep 30
