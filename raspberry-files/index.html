@@ -43,6 +43,9 @@
 
     <script src="config.js"></script>
     <script>
+        let lastHeartbeat = Date.now();
+        let currentVideoUrl = '';
+        
         // Function to show error message
         function showError(message) {
             const errorMessage = document.getElementById('errorMessage');
@@ -51,42 +54,75 @@
             setTimeout(() => {
                 errorMessage.style.display = 'none';
             }, 5000);
-            console.error(message);
         }
 
         // Function to update video source
-        function updateVideo(videoUrl) {
+        async function updateVideo(videoUrl) {
+            if (videoUrl === currentVideoUrl) return;
+            
             const video = document.getElementById('videoPlayer');
-            if (video.currentSrc === videoUrl) return;
-            
-            video.src = videoUrl;
-            
-            // Update status when video starts playing
-            video.onplaying = () => {
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'updateStatus',
-                        status: 'playing',
-                        currentVideo: videoUrl
-                    });
+            try {
+                video.src = videoUrl;
+                currentVideoUrl = videoUrl;
+                await video.play();
+                
+                // Report successful video load
+                reportStatus('playing', null);
+            } catch (error) {
+                console.error('Error playing video:', error);
+                showError('Error playing video');
+                reportStatus('error', error.message);
+            }
+        }
+
+        // Function to report status to server
+        async function reportStatus(status, error = null) {
+            try {
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_CONFIG.API_KEY
+                    },
+                    body: JSON.stringify({
+                        device_id: API_CONFIG.DEVICE_ID,
+                        status: status,
+                        error: error,
+                        current_content: currentVideoUrl,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update status');
                 }
-            };
-            
-            // Handle video errors
-            video.onerror = () => {
-                showError('Error playing video. Retrying...');
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'updateStatus',
-                        status: 'error',
-                        currentVideo: videoUrl
-                    });
+            } catch (error) {
+                console.error('Error reporting status:', error);
+            }
+        }
+
+        // Function to check for new content
+        async function checkContent() {
+            try {
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
+                    headers: {
+                        'X-API-Key': API_CONFIG.API_KEY
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch content');
                 }
-                // Retry after 5 seconds
-                setTimeout(() => {
-                    video.load();
-                }, 5000);
-            };
+
+                const data = await response.json();
+                if (data.content_url) {
+                    await updateVideo(data.content_url);
+                }
+            } catch (error) {
+                console.error('Error checking content:', error);
+                showError('Error checking for new content');
+                reportStatus('error', error.message);
+            }
         }
 
         // Register service worker
@@ -146,11 +182,20 @@
         }
 
         // Initialize
-        window.addEventListener('load', () => {
-            registerServiceWorker().catch(error => {
-                console.error('Initialization failed:', error);
-                showError('Failed to initialize player. Please refresh.');
-            });
+        window.addEventListener('load', async () => {
+            await registerServiceWorker().catch(console.error);
+            
+            // Initial content check
+            await checkContent();
+            
+            // Set up periodic checks
+            setInterval(checkContent, API_CONFIG.CONTENT_CHECK_INTERVAL);
+            
+            // Set up status reporting
+            setInterval(() => {
+                const video = document.getElementById('videoPlayer');
+                reportStatus(video.paused ? 'paused' : 'playing');
+            }, API_CONFIG.UPDATE_INTERVAL);
         });
     </script>
 </body>
