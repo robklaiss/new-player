@@ -10,6 +10,9 @@
             padding: 0;
             background: #000;
             overflow: hidden;
+            /* Prevent white flash */
+            -webkit-backface-visibility: hidden;
+            -webkit-transform: translateZ(0);
         }
         #videoPlayer {
             position: fixed;
@@ -19,6 +22,9 @@
             height: 100vh;
             object-fit: contain;
             background: #000;
+            /* Prevent white flash during video transitions */
+            -webkit-backface-visibility: hidden;
+            -webkit-transform: translateZ(0);
         }
         #controls {
             position: fixed;
@@ -29,6 +35,7 @@
             border-radius: 5px;
             z-index: 1000;
             display: none;
+            font-family: Arial, sans-serif;
         }
         #debugInfo {
             position: fixed;
@@ -41,6 +48,8 @@
             font-size: 12px;
             z-index: 1000;
             display: none;
+            max-height: 80vh;
+            overflow-y: auto;
         }
         .status-indicator {
             display: inline-block;
@@ -49,12 +58,9 @@
             border-radius: 50%;
             margin-right: 5px;
         }
-        .online {
-            background: #4CAF50;
-        }
-        .offline {
-            background: #f44336;
-        }
+        .online { background: #4CAF50; }
+        .offline { background: #f44336; }
+        .connecting { background: #FFC107; }
         button {
             background: #2196F3;
             color: white;
@@ -64,9 +70,7 @@
             cursor: pointer;
             margin: 0 5px;
         }
-        button:hover {
-            background: #1976D2;
-        }
+        button:hover { background: #1976D2; }
         .status-text {
             color: white;
             margin-right: 10px;
@@ -77,14 +81,15 @@
     <div id="debugInfo"></div>
     <div id="controls">
         <span class="status-indicator"></span>
-        <span class="status-text">Offline</span>
+        <span class="status-text">Initializing...</span>
         <button onclick="restartBrowser()">Restart Browser</button>
     </div>
     <video id="videoPlayer" 
            autoplay 
            loop 
            muted 
-           playsinline></video>
+           playsinline
+           crossorigin="anonymous"></video>
 
     <script src="config.js"></script>
     <script>
@@ -94,31 +99,43 @@
         const statusIndicator = document.querySelector('.status-indicator');
         const statusText = document.querySelector('.status-text');
         let isOnline = false;
+        let lastStatusUpdate = 0;
+        let statusUpdateRetries = 0;
 
-        // Simple error logging
-        function log(msg) {
-            console.log(msg);
-            if (debugInfo.style.display === 'none') {
-                debugInfo.style.display = 'block';
-                setTimeout(() => { debugInfo.style.display = 'none'; }, 5000);
-            }
-            debugInfo.textContent = msg + '\n' + debugInfo.textContent;
+        // Debug logging with timestamp
+        function log(msg, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMsg = `[${timestamp}] ${type.toUpperCase()}: ${msg}`;
+            console.log(logMsg);
+            debugInfo.innerHTML = logMsg + '<br>' + debugInfo.innerHTML;
         }
 
         // Update online status
         function updateOnlineStatus() {
+            const wasOnline = isOnline;
             isOnline = navigator.onLine;
             statusIndicator.className = 'status-indicator ' + (isOnline ? 'online' : 'offline');
             statusText.textContent = isOnline ? 'Online' : 'Offline';
-            reportStatus();
+            
+            if (isOnline && !wasOnline) {
+                log('Connection restored, reporting status...', 'info');
+                reportStatus();
+            }
         }
 
         // Report status to server
         async function reportStatus() {
-            if (!isOnline) return;
+            if (!isOnline) {
+                statusIndicator.className = 'status-indicator offline';
+                statusText.textContent = 'Offline';
+                return;
+            }
+
+            statusIndicator.className = 'status-indicator connecting';
+            statusText.textContent = 'Connecting...';
             
             try {
-                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
+                const response = await fetch('https://vinculo.com.py/new-player/api/status.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -127,48 +144,61 @@
                     },
                     body: JSON.stringify({
                         status: 'active',
-                        video_time: videoPlayer.currentTime,
-                        total_time: videoPlayer.duration,
+                        video_time: videoPlayer.currentTime || 0,
+                        total_time: videoPlayer.duration || 0,
                         is_playing: !videoPlayer.paused,
                         timestamp: new Date().toISOString(),
-                        version: '1.0.0'
+                        version: '1.0.0',
+                        device_id: API_CONFIG.DEVICE_ID,
+                        memory_usage: performance.memory ? performance.memory.usedJSHeapSize : 0,
+                        last_error: lastError || null
                     })
                 });
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                log('Status reported successfully');
-            } catch (error) {
-                log('Error reporting status: ' + error.message);
-            }
-        }
 
-        // Restart browser
-        function restartBrowser() {
-            if (confirm('Are you sure you want to restart the browser?')) {
-                fetch('/restart', { method: 'POST' })
-                    .catch(() => {
-                        // If fetch fails, try to restart via service worker
-                        if ('serviceWorker' in navigator) {
-                            navigator.serviceWorker.controller?.postMessage({ type: 'restart' });
-                        }
-                    });
+                const data = await response.json();
+                log('Status reported successfully', 'success');
+                statusUpdateRetries = 0;
+                lastStatusUpdate = Date.now();
+                
+                statusIndicator.className = 'status-indicator online';
+                statusText.textContent = 'Connected';
+            } catch (error) {
+                log('Error reporting status: ' + error.message, 'error');
+                statusUpdateRetries++;
+                
+                if (statusUpdateRetries >= 3) {
+                    statusIndicator.className = 'status-indicator offline';
+                    statusText.textContent = 'Connection Failed';
+                }
+                
+                // Exponential backoff for retries
+                const retryDelay = Math.min(1000 * Math.pow(2, statusUpdateRetries), 30000);
+                setTimeout(reportStatus, retryDelay);
             }
         }
 
         // Simple video player
         async function initPlayer() {
             try {
-                videoPlayer.src = 'sample.mp4';
+                // Preload video
+                const videoUrl = 'sample.mp4';
+                videoPlayer.style.display = 'none';
                 
-                videoPlayer.onerror = (e) => {
-                    log('Video Error: ' + (videoPlayer.error ? videoPlayer.error.message : 'Unknown error'));
+                videoPlayer.onloadeddata = () => {
+                    videoPlayer.style.display = 'block';
+                    log('Video loaded successfully', 'success');
+                    videoPlayer.play().catch(e => log('Play error: ' + e, 'error'));
                 };
                 
-                videoPlayer.oncanplay = () => {
-                    log('Video ready to play');
-                    videoPlayer.play().catch(e => log('Play error: ' + e));
+                videoPlayer.src = videoUrl;
+                
+                videoPlayer.onerror = (e) => {
+                    lastError = videoPlayer.error ? videoPlayer.error.message : 'Unknown error';
+                    log('Video Error: ' + lastError, 'error');
                 };
                 
                 // Monitor performance
@@ -177,13 +207,14 @@
                     if (lastTime > 0) {
                         const diff = videoPlayer.currentTime - lastTime;
                         if (diff > 0.5) {
-                            log('Frame skip detected');
+                            log('Frame skip detected', 'warning');
                         }
                     }
                     lastTime = videoPlayer.currentTime;
                 };
             } catch (e) {
-                log('Init error: ' + e);
+                lastError = e.message;
+                log('Init error: ' + e.message, 'error');
             }
         }
 
@@ -191,19 +222,32 @@
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
         updateOnlineStatus();
+        controls.style.display = 'block'; // Always show controls for debugging
 
         // Start player
         initPlayer();
         
         // Set up status reporting interval
-        setInterval(reportStatus, API_CONFIG.UPDATE_INTERVAL);
+        setInterval(() => {
+            if (Date.now() - lastStatusUpdate >= API_CONFIG.UPDATE_INTERVAL) {
+                reportStatus();
+            }
+        }, 5000); // Check every 5 seconds
+        
+        // Initial status report
+        reportStatus();
         
         // Add keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'd') {
                 debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
-            } else if (e.key === 'c') {
-                controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+
+        // Prevent white flash during video loops
+        videoPlayer.addEventListener('timeupdate', () => {
+            if (videoPlayer.currentTime >= videoPlayer.duration - 0.1) {
+                videoPlayer.currentTime = 0;
             }
         });
     </script>
