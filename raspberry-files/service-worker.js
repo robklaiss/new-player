@@ -7,21 +7,38 @@ let currentVersion = null;
 // Helper function to add API headers
 function getApiHeaders() {
     return {
-        'X-API-Key': API_CONFIG.API_KEY,
-        'X-Device-Id': API_CONFIG.DEVICE_ID
+        'Authorization': `Bearer ${API_CONFIG.API_KEY}`,
+        'X-Device-Id': API_CONFIG.DEVICE_ID,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
     };
 }
 
 // Helper function to handle API errors
 async function handleApiError(response) {
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText);
+        
+        let error;
+        try {
+            error = JSON.parse(errorText);
+        } catch {
+            error = { error: errorText || 'Unknown error' };
+        }
+        
+        if (response.status === 401) {
+            console.error('Authentication failed. Please verify API key.');
+        } else if (response.status === 403) {
+            console.error('Access forbidden. Please verify device ID and permissions.');
+        }
+        
         throw new Error(error.error || `HTTP error! status: ${response.status}`);
     }
     return response.json();
 }
 
-// Fetch and cache the manifest
+// Cache both current and next video for smooth transitions
 async function fetchManifest() {
     try {
         const response = await fetch(`${API_CONFIG.BASE_URL}/content.php`, {
@@ -31,23 +48,42 @@ async function fetchManifest() {
         const manifest = await handleApiError(response);
         currentVersion = manifest.version;
         
-        // Cache the video URL
+        // Cache the current and next videos
         const cache = await caches.open(CACHE_NAME);
-        await cache.add(manifest.content.video);
+        const videosToCache = [
+            manifest.content.video,
+            manifest.content.nextVideo
+        ].filter(Boolean);  // Remove undefined/null values
+        
+        // Pre-cache videos with progress tracking
+        await Promise.all(videosToCache.map(async videoUrl => {
+            try {
+                // Check if video is already cached
+                const cached = await cache.match(videoUrl);
+                if (!cached) {
+                    console.log(`Caching video: ${videoUrl}`);
+                    await cache.add(videoUrl);
+                    console.log(`Successfully cached: ${videoUrl}`);
+                }
+            } catch (error) {
+                console.error(`Error caching video ${videoUrl}:`, error);
+                await reportError('video_cache_error', `Failed to cache ${videoUrl}: ${error.message}`);
+            }
+        }));
         
         // Notify all clients about the update
         const clients = await self.clients.matchAll();
         clients.forEach(client => {
             client.postMessage({
                 type: 'contentUpdate',
-                content: manifest.content
+                content: manifest.content,
+                cached: videosToCache
             });
         });
         
         return manifest;
     } catch (error) {
         console.error('Error fetching manifest:', error);
-        // Report error to server
         await reportError('manifest_fetch_error', error.message);
         throw error;
     }
@@ -138,14 +174,32 @@ self.addEventListener('activate', event => {
     );
 });
 
-// Handle fetch requests
+// Enhanced fetch handler with offline support
 self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request)
-            .then(response => response || fetch(event.request))
-            .catch(error => {
-                console.error('Fetch error:', error);
-                reportError('fetch_error', error.message);
+            .then(async cachedResponse => {
+                if (cachedResponse) {
+                    // Return cached response
+                    return cachedResponse;
+                }
+                
+                try {
+                    // If not in cache, try to fetch
+                    const response = await fetch(event.request);
+                    
+                    // Cache successful video responses
+                    if (response.ok && event.request.url.match(/\.(mp4|webm|ogg)$/i)) {
+                        const cache = await caches.open(CACHE_NAME);
+                        cache.put(event.request, response.clone());
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    await reportError('fetch_error', `${error.message} for ${event.request.url}`);
+                    throw error;
+                }
             })
     );
 });
