@@ -54,8 +54,27 @@ git add raspberry-files/index.html<!DOCTYPE html>
             debugInfo.innerHTML = initSteps.join('\n');
         }
 
+        function checkVideoSupport() {
+            const video = document.createElement('video');
+            const formats = {
+                mp4: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+                webm: 'video/webm; codecs="vp8, vorbis"',
+                ogg: 'video/ogg; codecs="theora"'
+            };
+            
+            const supported = [];
+            for (const [format, codec] of Object.entries(formats)) {
+                if (video.canPlayType(codec) !== "") {
+                    supported.push(format);
+                }
+            }
+            return supported;
+        }
+
         // Start initialization
         addDebugStep('Page loaded successfully');
+        const supportedFormats = checkVideoSupport();
+        addDebugStep(`Supported video formats: ${supportedFormats.join(', ')}`, 'status');
 
         // Load config
         const script = document.createElement('script');
@@ -69,7 +88,19 @@ git add raspberry-files/index.html<!DOCTYPE html>
                 if (API_CONFIG.TESTING_MODE) {
                     addDebugStep('Running in testing mode', 'status');
                     addDebugStep(`Loading local video: ${API_CONFIG.LOCAL_VIDEO}`, 'status');
-                    videoPlayer.src = API_CONFIG.LOCAL_VIDEO;
+                    
+                    // Try both MP4 and WebM versions
+                    const videoName = API_CONFIG.LOCAL_VIDEO.replace('.mp4', '');
+                    for (const format of supportedFormats) {
+                        try {
+                            videoPlayer.src = `${videoName}.${format}`;
+                            addDebugStep(`Trying ${format} format...`, 'status');
+                            await videoPlayer.load();
+                            break;
+                        } catch (e) {
+                            addDebugStep(`Failed to load ${format} version`, 'error');
+                        }
+                    }
                     
                     videoPlayer.onloadeddata = () => {
                         addDebugStep('Local video loaded successfully', 'success');
