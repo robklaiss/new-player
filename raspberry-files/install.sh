@@ -6,6 +6,8 @@ set -e
 # Configuration
 KIOSK_DIR="/var/www/kiosk"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CURRENT_USER=$(whoami)
+HOME_DIR=$(eval echo ~$CURRENT_USER)
 
 # Logging function
 log() {
@@ -31,7 +33,7 @@ sudo apt-get install -y \
 # Create kiosk directory
 log "Setting up kiosk directory..."
 sudo mkdir -p "$KIOSK_DIR"
-sudo chown -R $USER:$USER "$KIOSK_DIR"
+sudo chown -R $CURRENT_USER:$CURRENT_USER "$KIOSK_DIR"
 
 # Copy files
 log "Copying kiosk files..."
@@ -47,12 +49,13 @@ After=network.target
 
 [Service]
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$USER/.Xauthority
+Environment=XAUTHORITY=$HOME_DIR/.Xauthority
 Type=simple
-User=$USER
+User=$CURRENT_USER
 ExecStart=/bin/bash $KIOSK_DIR/start-kiosk.sh
 Restart=on-failure
 RestartSec=5
+WorkingDirectory=$KIOSK_DIR
 
 [Install]
 WantedBy=multi-user.target
@@ -60,6 +63,7 @@ EOL
 
 # Setup X11 configuration
 log "Setting up X11 configuration..."
+sudo mkdir -p /etc/X11/xorg.conf.d
 sudo tee /etc/X11/xorg.conf.d/10-monitor.conf > /dev/null << EOL
 Section "Monitor"
     Identifier "HDMI-1"
@@ -76,10 +80,23 @@ EOL
 
 # Setup video device permissions
 log "Setting up video permissions..."
-sudo usermod -a -G video $USER
+sudo usermod -a -G video $CURRENT_USER
 if [ -e "/dev/video10" ]; then
     sudo chmod 666 /dev/video10
 fi
+
+# Create Xauthority if it doesn't exist
+touch "$HOME_DIR/.Xauthority"
+chown $CURRENT_USER:$CURRENT_USER "$HOME_DIR/.Xauthority"
+
+# Set up auto-login
+log "Setting up auto-login..."
+sudo mkdir -p /etc/lightdm/lightdm.conf.d
+sudo tee /etc/lightdm/lightdm.conf.d/autologin.conf > /dev/null << EOL
+[Seat:*]
+autologin-user=$CURRENT_USER
+autologin-user-timeout=0
+EOL
 
 # Enable and start service
 log "Enabling and starting kiosk service..."
