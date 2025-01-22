@@ -2,7 +2,7 @@
 const API_CONFIG = {
     // Use local video file for testing
     TESTING_MODE: true,
-    LOCAL_VIDEO: 'sample.mp4',
+    LOCAL_VIDEO: 'optimized.mp4',
     // API settings
     BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : 'http://vinculo.com.py/new-player/api',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
@@ -18,6 +18,9 @@ const API_CONFIG = {
         autoRestart: true,
         maxRetries: 3,
         retryDelay: 5000, // 5 seconds between retries
-        defaultVolume: 1.0
+        defaultVolume: 1.0,
+        // Hardware acceleration hints
+        playbackRate: 1.0,
+        hardwareAcceleration: true
     }
 };
