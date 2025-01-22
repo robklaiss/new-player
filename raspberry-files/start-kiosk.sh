@@ -32,8 +32,38 @@ done
 start_http_server() {
     cd "$KIOSK_DIR" || exit 1
     debug "Starting HTTP server in $KIOSK_DIR"
-    python3 -m http.server $HTTP_PORT > /dev/null 2>&1 &
     
+    # Create a simple Python HTTP server with restart endpoint
+    python3 -c '
+import http.server
+import socketserver
+import json
+import os
+import signal
+
+class KioskHandler(http.server.SimpleHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == "/restart":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "restarting"}).encode())
+            
+            # Kill Chromium process
+            os.system("pkill -f chromium")
+            return
+
+        return super().do_POST(self)
+
+    def log_message(self, format, *args):
+        # Suppress logging for cleaner output
+        pass
+
+with socketserver.TCPServer(("", 8000), KioskHandler) as httpd:
+    print("Server started at port 8000")
+    httpd.serve_forever()
+' &
+
     # Wait for server to start
     for i in $(seq 1 30); do
         if curl -s http://localhost:$HTTP_PORT > /dev/null; then
@@ -54,67 +84,32 @@ start_browser() {
     ulimit -n 1024
     ulimit -u 512
 
-    # Wait for HTTP server to be ready
-    local max_retries=30
-    local retry_count=0
-    while ! curl -s http://localhost:$HTTP_PORT >/dev/null; do
-        retry_count=$((retry_count + 1))
-        if [ $retry_count -ge $max_retries ]; then
-            log "ERROR: HTTP server not responding after $max_retries attempts"
-            return 1
-        fi
-        log "Waiting for HTTP server (attempt $retry_count/$max_retries)..."
-        sleep 1
-    done
+    # Clear browser cache and temporary files
+    rm -rf ~/.cache/chromium
+    rm -rf ~/.config/chromium/Default/Cache
+    rm -rf /tmp/.org.chromium.*
 
-    log "Starting Chromium in kiosk mode..."
-    
-    # Start Chromium with optimized flags
+    # Start Chromium with minimal flags
     chromium-browser \
         --kiosk \
-        --noerrdialogs \
-        --disable-infobars \
-        --disable-features=TranslateUI \
-        --disable-features=PreloadMediaEngagementData \
-        --disable-session-crashed-bubble \
-        --disable-pinch \
-        --overscroll-history-navigation=0 \
-        --check-for-update-interval=31536000 \
-        --autoplay-policy=no-user-gesture-required \
-        --disable-background-timer-throttling \
-        --disable-background-networking \
-        --disable-breakpad \
-        --disable-client-side-phishing-detection \
-        --disable-default-apps \
-        --disable-dev-shm-usage \
-        --disable-extensions \
-        --disable-hang-monitor \
-        --disable-prompt-on-repost \
+        --disable-gpu-vsync \
+        --ignore-gpu-blacklist \
+        --enable-gpu-rasterization \
+        --enable-zero-copy \
+        --disable-features=site-per-process \
         --disable-sync \
         --disable-translate \
-        --metrics-recording-only \
+        --disable-extensions \
         --no-first-run \
-        --password-store=basic \
-        --start-maximized \
-        --window-position=0,0 \
-        --window-size=1920,1080 \
-        --use-gl=egl \
         --no-sandbox \
-        --test-type \
-        --ignore-certificate-errors \
-        "http://localhost:$HTTP_PORT" &
+        --start-maximized \
+        --autoplay-policy=no-user-gesture-required \
+        --noerrdialogs \
+        --disable-infobars \
+        --disable-session-crashed-bubble \
+        --app=file:///var/www/kiosk/raspberry-files/index.html &
 
     BROWSER_PID=$!
-    debug "Browser started with PID: $BROWSER_PID"
-    
-    # Wait for browser to start
-    sleep 5
-    
-    # Check if browser is actually running
-    if ! kill -0 $BROWSER_PID 2>/dev/null; then
-        log "ERROR: Browser failed to start"
-        return 1
-    fi
     
     # Monitor browser process
     while kill -0 $BROWSER_PID 2>/dev/null; do
@@ -147,6 +142,17 @@ sleep 1
 xset s off
 xset s noblank
 xset -dpms
+
+# Set up emergency exit key binding (Ctrl+Alt+Q)
+xmodmap -e "keycode 24 = q Q q Q"
+xmodmap -e "keycode 37 = Control_L Control_L Control_L Control_L"
+xmodmap -e "keycode 64 = Alt_L Alt_L Alt_L Alt_L"
+
+# Set up key binding
+xbindkeys -f - << EOF
+"pkill -f chromium && sudo systemctl stop kiosk.service"
+  Control + Alt + q
+EOF
 
 # Remove any existing Chromium preferences that might interfere
 rm -rf ~/.config/chromium/Default/Preferences

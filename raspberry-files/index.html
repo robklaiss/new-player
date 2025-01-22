@@ -3,201 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#000000">
     <title>Video Player</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-192.png">
     <style>
         body {
             margin: 0;
-            padding: 20px;
-            background: #FF0000;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 24px;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+        }
+        #videoPlayer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            background: #000;
+        }
+        #controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
         }
         #debugInfo {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            margin: 20px;
-            border-radius: 10px;
-            white-space: pre-line;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
         }
-        .success {
-            color: #4CAF50;
-            font-weight: bold;
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
         }
-        .error {
-            color: #f44336;
-            font-weight: bold;
+        .online {
+            background: #4CAF50;
         }
-        .status {
-            color: #2196F3;
-            font-weight: bold;
+        .offline {
+            background: #f44336;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .status-text {
+            color: white;
+            margin-right: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="debugInfo">Initializing system...</div>
+    <div id="debugInfo"></div>
+    <div id="controls">
+        <span class="status-indicator"></span>
+        <span class="status-text">Offline</span>
+        <button onclick="restartBrowser()">Restart Browser</button>
+    </div>
     <video id="videoPlayer" 
-           style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: -1;" 
-           autoplay loop muted playsinline
-           x-webkit-airplay="allow"
-           webkit-playsinline
-           preload="auto"></video>
+           autoplay 
+           loop 
+           muted 
+           playsinline></video>
 
+    <script src="config.js"></script>
     <script>
-        const debugInfo = document.getElementById('debugInfo');
         const videoPlayer = document.getElementById('videoPlayer');
-        let initSteps = [];
+        const debugInfo = document.getElementById('debugInfo');
+        const controls = document.getElementById('controls');
+        const statusIndicator = document.querySelector('.status-indicator');
+        const statusText = document.querySelector('.status-text');
+        let isOnline = false;
 
-        function addDebugStep(message, type = 'status') {
-            const timestamp = new Date().toLocaleTimeString();
-            initSteps.push(`[${timestamp}] <span class="${type}">${message}</span>`);
-            debugInfo.innerHTML = initSteps.join('\n');
-        }
-
-        function checkVideoSupport() {
-            const video = document.createElement('video');
-            const formats = {
-                mp4: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
-                webm: 'video/webm; codecs="vp8, vorbis"',
-                ogg: 'video/ogg; codecs="theora"'
-            };
-            
-            const supported = [];
-            for (const [format, codec] of Object.entries(formats)) {
-                if (video.canPlayType(codec) !== "") {
-                    supported.push(format);
-                }
+        // Simple error logging
+        function log(msg) {
+            console.log(msg);
+            if (debugInfo.style.display === 'none') {
+                debugInfo.style.display = 'block';
+                setTimeout(() => { debugInfo.style.display = 'none'; }, 5000);
             }
-            return supported;
+            debugInfo.textContent = msg + '\n' + debugInfo.textContent;
         }
 
-        // Start initialization
-        addDebugStep('Page loaded successfully');
-        const supportedFormats = checkVideoSupport();
-        addDebugStep(`Supported video formats: ${supportedFormats.join(', ')}`, 'status');
+        // Update online status
+        function updateOnlineStatus() {
+            isOnline = navigator.onLine;
+            statusIndicator.className = 'status-indicator ' + (isOnline ? 'online' : 'offline');
+            statusText.textContent = isOnline ? 'Online' : 'Offline';
+            reportStatus();
+        }
 
-        // Load config
-        const script = document.createElement('script');
-        script.src = 'config.js';
-        script.onload = async () => {
-            addDebugStep('Config loaded successfully', 'success');
-            addDebugStep(`API URL: ${API_CONFIG.BASE_URL}`, 'status');
-            addDebugStep(`Device ID: ${API_CONFIG.DEVICE_ID}`, 'status');
-
+        // Report status to server
+        async function reportStatus() {
+            if (!isOnline) return;
+            
             try {
-                if (API_CONFIG.TESTING_MODE) {
-                    addDebugStep('Running in testing mode', 'status');
-                    addDebugStep(`Loading local video: ${API_CONFIG.LOCAL_VIDEO}`, 'status');
-                    
-                    // Try both MP4 and WebM versions
-                    const videoName = API_CONFIG.LOCAL_VIDEO.replace('.mp4', '');
-                    for (const format of supportedFormats) {
-                        try {
-                            videoPlayer.src = `${videoName}.${format}`;
-                            addDebugStep(`Trying ${format} format...`, 'status');
-                            await videoPlayer.load();
-                            break;
-                        } catch (e) {
-                            addDebugStep(`Failed to load ${format} version`, 'error');
-                        }
-                    }
-                    
-                    videoPlayer.src = API_CONFIG.LOCAL_VIDEO;
-                    
-                    // Apply hardware acceleration settings
-                    if (API_CONFIG.VIDEO_CONFIG.hardwareAcceleration) {
-                        videoPlayer.playbackRate = API_CONFIG.VIDEO_CONFIG.playbackRate;
-                        addDebugStep('Hardware acceleration enabled', 'status');
-                    }
-                    
-                    videoPlayer.onloadeddata = () => {
-                        addDebugStep('Local video loaded successfully', 'success');
-                        debugInfo.style.opacity = '0.5';
-                        setTimeout(() => {
-                            debugInfo.style.opacity = '0';
-                        }, 5000);
-                    };
-                    
-                    videoPlayer.onerror = (e) => {
-                        addDebugStep(`Video error: ${videoPlayer.error?.message || 'Unknown error'}`, 'error');
-                    };
-                    
-                    await videoPlayer.play();
-                    return;
-                }
-
-                // If not in testing mode, try API connection
-                addDebugStep('Testing API connection...');
-                addDebugStep(`Trying URL: ${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, 'status');
-                
-                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
-                    mode: 'no-cors',
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
+                    method: 'POST',
                     headers: {
-                        'X-API-Key': API_CONFIG.API_KEY,
-                        'Accept': 'application/json'
-                    }
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_CONFIG.API_KEY}`,
+                        'X-Device-Id': API_CONFIG.DEVICE_ID
+                    },
+                    body: JSON.stringify({
+                        status: 'active',
+                        video_time: videoPlayer.currentTime,
+                        total_time: videoPlayer.duration,
+                        is_playing: !videoPlayer.paused,
+                        timestamp: new Date().toISOString(),
+                        version: '1.0.0'
+                    })
                 });
 
-                if (!response.ok && response.type !== 'opaque') {
-                    const errorText = await response.text().catch(() => 'No error text available');
-                    throw new Error(`HTTP error! status: ${response.status}, type: ${response.type}, message: ${errorText}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
-                if (response.type === 'opaque') {
-                    addDebugStep('Got opaque response - server received request but CORS prevents reading response', 'status');
-                } else {
-                    const data = await response.json();
-                    addDebugStep('API connection successful', 'success');
-                    
-                    if (data.content_url) {
-                        addDebugStep(`Content URL received: ${data.content_url}`, 'success');
-                        videoPlayer.src = data.content_url;
-                        
-                        videoPlayer.onloadeddata = () => {
-                            addDebugStep('Video loaded successfully', 'success');
-                            debugInfo.style.opacity = '0.5';
-                            setTimeout(() => {
-                                debugInfo.style.opacity = '0';
-                            }, 5000);
-                        };
-                        
-                        videoPlayer.onerror = (e) => {
-                            addDebugStep(`Video error: ${videoPlayer.error?.message || 'Unknown error'}`, 'error');
-                        };
-                        
-                        await videoPlayer.play();
-                    } else {
-                        addDebugStep('No content URL in response', 'error');
-                        addDebugStep('Trying fallback video...', 'status');
-                        videoPlayer.src = 'fallback.mp4';
-                        
-                        videoPlayer.onloadeddata = () => {
-                            addDebugStep('Fallback video loaded successfully', 'success');
-                            debugInfo.style.opacity = '0.5';
-                            setTimeout(() => {
-                                debugInfo.style.opacity = '0';
-                            }, 5000);
-                        };
-                    }
-                }
+                log('Status reported successfully');
             } catch (error) {
-                addDebugStep(`Error: ${error.message}`, 'error');
+                log('Error reporting status: ' + error.message);
             }
-        };
+        }
 
-        script.onerror = () => {
-            addDebugStep('Failed to load config.js', 'error');
-        };
+        // Restart browser
+        function restartBrowser() {
+            if (confirm('Are you sure you want to restart the browser?')) {
+                fetch('/restart', { method: 'POST' })
+                    .catch(() => {
+                        // If fetch fails, try to restart via service worker
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.controller?.postMessage({ type: 'restart' });
+                        }
+                    });
+            }
+        }
 
-        document.body.appendChild(script);
+        // Simple video player
+        async function initPlayer() {
+            try {
+                videoPlayer.src = 'sample.mp4';
+                
+                videoPlayer.onerror = (e) => {
+                    log('Video Error: ' + (videoPlayer.error ? videoPlayer.error.message : 'Unknown error'));
+                };
+                
+                videoPlayer.oncanplay = () => {
+                    log('Video ready to play');
+                    videoPlayer.play().catch(e => log('Play error: ' + e));
+                };
+                
+                // Monitor performance
+                let lastTime = 0;
+                videoPlayer.ontimeupdate = () => {
+                    if (lastTime > 0) {
+                        const diff = videoPlayer.currentTime - lastTime;
+                        if (diff > 0.5) {
+                            log('Frame skip detected');
+                        }
+                    }
+                    lastTime = videoPlayer.currentTime;
+                };
+            } catch (e) {
+                log('Init error: ' + e);
+            }
+        }
 
-        // Enable hardware acceleration
-        videoPlayer.style.transform = 'translateZ(0)';
-        videoPlayer.style.webkitTransform = 'translateZ(0)';
+        // Initialize
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // Start player
+        initPlayer();
+        
+        // Set up status reporting interval
+        setInterval(reportStatus, API_CONFIG.UPDATE_INTERVAL);
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'd') {
+                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+            } else if (e.key === 'c') {
+                controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
+            }
+        });
     </script>
 </body>
 </html>
