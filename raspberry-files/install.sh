@@ -31,7 +31,7 @@ fi
 # Install required packages
 log "Installing required packages..."
 apt update
-apt install -y git chromium-browser unclutter xserver-xorg x11-xserver-utils python3-flask python3-requests lightdm openssh-client
+apt install -y git chromium-browser unclutter xserver-xorg x11-xserver-utils python3-flask python3-requests lightdm openssh-client ffmpeg
 
 # Enable and start lightdm
 log "Enabling display manager..."
@@ -73,6 +73,11 @@ else
         error "Failed to clone repository. Please ensure you have access and try again."
     }
 fi
+
+# Optimize video for playback
+log "Optimizing video for playback..."
+cd /var/www/kiosk/raspberry-files
+ffmpeg -i sample.mp4 -vf scale=1280:720 -c:v libx264 -preset ultrafast optimized.mp4
 
 # Set up service files
 log "Setting up service files..."
