@@ -49,17 +49,125 @@
         </div>
 
         <!-- Devices Section -->
-        <div class="card">
-            <div class="card-header">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Connected Devices</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#pairDeviceModal">
+                    <i class="bi bi-plus"></i> Add Device
+                </button>
             </div>
             <div class="card-body">
                 <div id="deviceList" class="row"></div>
             </div>
         </div>
+
+        <!-- Pair Device Modal -->
+        <div class="modal fade" id="pairDeviceModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Pair New Device</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="pairDeviceForm">
+                            <div class="mb-3">
+                                <label for="deviceId" class="form-label">Device ID</label>
+                                <input type="text" class="form-control" id="deviceId" required
+                                    placeholder="Enter the Device ID shown on the kiosk screen">
+                            </div>
+                            <div class="mb-3">
+                                <label for="deviceName" class="form-label">Device Name (Optional)</label>
+                                <input type="text" class="form-control" id="deviceName"
+                                    placeholder="Enter a friendly name for this device">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="pairDevice()">Pair Device</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/admin.js"></script>
+    <script>
+        // Device management functions
+        function loadDevices() {
+            fetch('devices.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const deviceList = document.getElementById('deviceList');
+                        deviceList.innerHTML = '';
+                        
+                        data.devices.forEach(device => {
+                            const deviceCard = document.createElement('div');
+                            deviceCard.className = 'col-md-6 col-lg-4 mb-3';
+                            deviceCard.innerHTML = `
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">${device.name}</h5>
+                                        <p class="card-text">
+                                            <small class="text-muted">ID: ${device.id}</small><br>
+                                            Status: <span class="badge ${device.status === 'online' ? 'bg-success' : 'bg-danger'}">${device.status}</span><br>
+                                            Last Seen: ${new Date(device.last_seen * 1000).toLocaleString()}<br>
+                                            Paired: ${new Date(device.paired_at * 1000).toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            `;
+                            deviceList.appendChild(deviceCard);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading devices:', error));
+        }
+
+        function pairDevice() {
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const deviceName = document.getElementById('deviceName').value.trim();
+            
+            if (!deviceId) {
+                alert('Please enter a Device ID');
+                return;
+            }
+            
+            fetch('devices.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'pair',
+                    device_id: deviceId,
+                    name: deviceName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Device paired successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('pairDeviceModal')).hide();
+                    loadDevices();
+                } else {
+                    alert('Error pairing device: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error pairing device. Please try again.');
+            });
+        }
+
+        // Load devices on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDevices();
+            // Refresh device list every 30 seconds
+            setInterval(loadDevices, 30000);
+        });
+    </script>
 </body>
 </html>
