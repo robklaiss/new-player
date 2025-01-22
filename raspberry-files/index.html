@@ -66,32 +66,13 @@ git add raspberry-files/index.html<!DOCTYPE html>
             addDebugStep(`Device ID: ${API_CONFIG.DEVICE_ID}`, 'status');
 
             try {
-                // Test API connection
-                addDebugStep('Testing API connection...');
-                addDebugStep(`Trying URL: ${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, 'status');
-                
-                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
-                    mode: 'cors',
-                    headers: {
-                        'X-API-Key': API_CONFIG.API_KEY,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
-
-                const data = await response.json();
-                addDebugStep('API connection successful', 'success');
-                
-                if (data.content_url) {
-                    addDebugStep(`Content URL received: ${data.content_url}`, 'success');
-                    videoPlayer.src = data.content_url;
+                if (API_CONFIG.TESTING_MODE) {
+                    addDebugStep('Running in testing mode', 'status');
+                    addDebugStep(`Loading local video: ${API_CONFIG.LOCAL_VIDEO}`, 'status');
+                    videoPlayer.src = API_CONFIG.LOCAL_VIDEO;
                     
                     videoPlayer.onloadeddata = () => {
-                        addDebugStep('Video loaded successfully', 'success');
+                        addDebugStep('Local video loaded successfully', 'success');
                         debugInfo.style.opacity = '0.5';
                         setTimeout(() => {
                             debugInfo.style.opacity = '0';
@@ -103,8 +84,62 @@ git add raspberry-files/index.html<!DOCTYPE html>
                     };
                     
                     await videoPlayer.play();
+                    return;
+                }
+
+                // If not in testing mode, try API connection
+                addDebugStep('Testing API connection...');
+                addDebugStep(`Trying URL: ${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, 'status');
+                
+                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
+                    mode: 'no-cors',
+                    headers: {
+                        'X-API-Key': API_CONFIG.API_KEY,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok && response.type !== 'opaque') {
+                    const errorText = await response.text().catch(() => 'No error text available');
+                    throw new Error(`HTTP error! status: ${response.status}, type: ${response.type}, message: ${errorText}`);
+                }
+
+                if (response.type === 'opaque') {
+                    addDebugStep('Got opaque response - server received request but CORS prevents reading response', 'status');
                 } else {
-                    addDebugStep('No content URL in response', 'error');
+                    const data = await response.json();
+                    addDebugStep('API connection successful', 'success');
+                    
+                    if (data.content_url) {
+                        addDebugStep(`Content URL received: ${data.content_url}`, 'success');
+                        videoPlayer.src = data.content_url;
+                        
+                        videoPlayer.onloadeddata = () => {
+                            addDebugStep('Video loaded successfully', 'success');
+                            debugInfo.style.opacity = '0.5';
+                            setTimeout(() => {
+                                debugInfo.style.opacity = '0';
+                            }, 5000);
+                        };
+                        
+                        videoPlayer.onerror = (e) => {
+                            addDebugStep(`Video error: ${videoPlayer.error?.message || 'Unknown error'}`, 'error');
+                        };
+                        
+                        await videoPlayer.play();
+                    } else {
+                        addDebugStep('No content URL in response', 'error');
+                        addDebugStep('Trying fallback video...', 'status');
+                        videoPlayer.src = 'fallback.mp4';
+                        
+                        videoPlayer.onloadeddata = () => {
+                            addDebugStep('Fallback video loaded successfully', 'success');
+                            debugInfo.style.opacity = '0.5';
+                            setTimeout(() => {
+                                debugInfo.style.opacity = '0';
+                            }, 5000);
+                        };
+                    }
                 }
             } catch (error) {
                 addDebugStep(`Error: ${error.message}`, 'error');
