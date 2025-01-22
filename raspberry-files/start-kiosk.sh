@@ -50,33 +50,72 @@ start_http_server() {
 
 # Function to start browser in kiosk mode
 start_browser() {
-    debug "Starting Chromium in kiosk mode"
+    # Set process limits
+    ulimit -n 1024
+    ulimit -u 512
+
+    # Start Chromium with optimized flags
+    chromium-browser \
+        --kiosk \
+        --start-maximized \
+        --disable-features=TranslateUI \
+        --disable-features=PreloadMediaEngagementData \
+        --autoplay-policy=no-user-gesture-required \
+        --disable-background-timer-throttling \
+        --disable-background-networking \
+        --disable-breakpad \
+        --disable-client-side-phishing-detection \
+        --disable-default-apps \
+        --disable-dev-shm-usage \
+        --disable-extensions \
+        --disable-features=site-per-process \
+        --disable-hang-monitor \
+        --disable-ipc-flooding-protection \
+        --disable-popup-blocking \
+        --disable-prompt-on-repost \
+        --disable-renderer-backgrounding \
+        --disable-sync \
+        --disable-translate \
+        --metrics-recording-only \
+        --no-first-run \
+        --safebrowsing-disable-auto-update \
+        --password-store=basic \
+        --use-gl=egl \
+        --no-sandbox \
+        --test-type \
+        --ignore-certificate-errors \
+        --single-process \
+        "http://localhost:$HTTP_PORT" &
+
+    BROWSER_PID=$!
+    debug "Browser started with PID: $BROWSER_PID"
     
-    # Configure Chromium flags
-    CHROME_OPTS="--kiosk --disable-infobars --noerrdialogs"
-    CHROME_OPTS="$CHROME_OPTS --disable-translate --no-first-run"
-    CHROME_OPTS="$CHROME_OPTS --disable-pinch --overscroll-history-navigation=0"
-    CHROME_OPTS="$CHROME_OPTS --disable-features=TranslateUI"
-    CHROME_OPTS="$CHROME_OPTS --autoplay-policy=no-user-gesture-required"
-    
-    # Clear cache and temporary files
-    rm -rf /home/infoactive/.config/chromium/Default/Cache/*
-    rm -rf /home/infoactive/.cache/chromium/*
-    
-    # Start Chromium
-    chromium-browser $CHROME_OPTS "http://localhost:$HTTP_PORT" &
-    
-    # Wait for browser to start
-    sleep 5
-    debug "Browser started"
+    # Monitor browser process
+    while kill -0 $BROWSER_PID 2>/dev/null; do
+        sleep 5
+        # Check memory usage
+        MEM_USAGE=$(ps -o rss= -p $BROWSER_PID)
+        if [ -n "$MEM_USAGE" ] && [ $MEM_USAGE -gt 500000 ]; then
+            log "WARNING: High memory usage detected ($MEM_USAGE KB). Restarting browser..."
+            kill $BROWSER_PID
+            sleep 5
+            start_browser
+            return
+        fi
+    done
 }
 
 log "Starting kiosk script"
 
 # Kill existing processes
+log "Cleaning up existing processes..."
 pkill -f "python3 -m http.server $HTTP_PORT" || true
-pkill chromium || true
-pkill chromium-browser || true
+pkill -f "chromium" || true
+sleep 2
+
+# Make sure all Chromium processes are really gone
+killall -9 chromium chromium-browser 2>/dev/null || true
+sleep 1
 
 # Start HTTP server
 start_http_server || exit 1
