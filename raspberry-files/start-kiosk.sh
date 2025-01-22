@@ -54,12 +54,32 @@ start_browser() {
     ulimit -n 1024
     ulimit -u 512
 
+    # Wait for HTTP server to be ready
+    local max_retries=30
+    local retry_count=0
+    while ! curl -s http://localhost:$HTTP_PORT >/dev/null; do
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -ge $max_retries ]; then
+            log "ERROR: HTTP server not responding after $max_retries attempts"
+            return 1
+        fi
+        log "Waiting for HTTP server (attempt $retry_count/$max_retries)..."
+        sleep 1
+    done
+
+    log "Starting Chromium in kiosk mode..."
+    
     # Start Chromium with optimized flags
     chromium-browser \
         --kiosk \
-        --start-maximized \
+        --noerrdialogs \
+        --disable-infobars \
         --disable-features=TranslateUI \
         --disable-features=PreloadMediaEngagementData \
+        --disable-session-crashed-bubble \
+        --disable-pinch \
+        --overscroll-history-navigation=0 \
+        --check-for-update-interval=31536000 \
         --autoplay-policy=no-user-gesture-required \
         --disable-background-timer-throttling \
         --disable-background-networking \
@@ -68,27 +88,33 @@ start_browser() {
         --disable-default-apps \
         --disable-dev-shm-usage \
         --disable-extensions \
-        --disable-features=site-per-process \
         --disable-hang-monitor \
-        --disable-ipc-flooding-protection \
-        --disable-popup-blocking \
         --disable-prompt-on-repost \
-        --disable-renderer-backgrounding \
         --disable-sync \
         --disable-translate \
         --metrics-recording-only \
         --no-first-run \
-        --safebrowsing-disable-auto-update \
         --password-store=basic \
+        --start-maximized \
+        --window-position=0,0 \
+        --window-size=1920,1080 \
         --use-gl=egl \
         --no-sandbox \
         --test-type \
         --ignore-certificate-errors \
-        --single-process \
         "http://localhost:$HTTP_PORT" &
 
     BROWSER_PID=$!
     debug "Browser started with PID: $BROWSER_PID"
+    
+    # Wait for browser to start
+    sleep 5
+    
+    # Check if browser is actually running
+    if ! kill -0 $BROWSER_PID 2>/dev/null; then
+        log "ERROR: Browser failed to start"
+        return 1
+    fi
     
     # Monitor browser process
     while kill -0 $BROWSER_PID 2>/dev/null; do
@@ -117,11 +143,29 @@ sleep 2
 killall -9 chromium chromium-browser 2>/dev/null || true
 sleep 1
 
+# Set up window manager to prevent screen blanking
+xset s off
+xset s noblank
+xset -dpms
+
+# Remove any existing Chromium preferences that might interfere
+rm -rf ~/.config/chromium/Default/Preferences
+rm -rf ~/.config/chromium/Singleton*
+
 # Start HTTP server
 start_http_server || exit 1
 
 # Start browser
 start_browser
+
+# Add trap for cleanup
+trap 'cleanup' EXIT SIGTERM SIGINT
+cleanup() {
+    log "Cleaning up..."
+    pkill -f "chromium" || true
+    pkill -f "python3 -m http.server $HTTP_PORT" || true
+    exit 0
+}
 
 # Keep script running
 while true; do
