@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=infoactive
 Group=infoactive
-WorkingDirectory=/var/www/kiosk/raspberry-files
-ExecStart=/usr/bin/python3 /var/www/kiosk/raspberry-files/device_monitor.py
+WorkingDirectory=/var/www/kiosk
+ExecStart=/usr/bin/python3 /var/www/kiosk/device_monitor.py
 
 # Restart settings
 Restart=always

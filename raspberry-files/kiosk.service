@@ -9,7 +9,7 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
-WorkingDirectory=/var/www/kiosk/player
+WorkingDirectory=/var/www/kiosk
 
 # Start the kiosk browser
 ExecStart=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost/index.html
