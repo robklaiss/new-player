@@ -35,19 +35,42 @@
             text-align: center;
             font-family: Arial, sans-serif;
         }
+        #debugInfo {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
     <video id="videoPlayer" autoplay loop muted playsinline></video>
     <div id="errorMessage"></div>
+    <div id="debugInfo"></div>
 
     <script src="config.js"></script>
     <script>
         let lastHeartbeat = Date.now();
         let currentVideoUrl = '';
+        const debugInfo = document.getElementById('debugInfo');
+        
+        function updateDebugInfo(message) {
+            debugInfo.innerHTML = `
+                Last Update: ${new Date().toLocaleTimeString()}<br>
+                Status: ${message}<br>
+                Current URL: ${currentVideoUrl || 'None'}<br>
+                Device ID: ${API_CONFIG.DEVICE_ID}
+            `;
+        }
         
         // Function to show error message
         function showError(message) {
+            console.error('Error:', message);
+            updateDebugInfo('Error: ' + message);
             const errorMessage = document.getElementById('errorMessage');
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
@@ -58,19 +81,41 @@
 
         // Function to update video source
         async function updateVideo(videoUrl) {
+            if (!videoUrl) {
+                showError('No video URL provided');
+                return;
+            }
+            
             if (videoUrl === currentVideoUrl) return;
             
+            updateDebugInfo('Loading video: ' + videoUrl);
             const video = document.getElementById('videoPlayer');
+            
             try {
+                // First try to fetch the video to ensure it exists
+                const response = await fetch(videoUrl, { method: 'HEAD' });
+                if (!response.ok) {
+                    throw new Error(`Video not found (${response.status})`);
+                }
+                
                 video.src = videoUrl;
                 currentVideoUrl = videoUrl;
-                await video.play();
                 
-                // Report successful video load
-                reportStatus('playing', null);
+                // Add event listeners for video
+                video.onloadeddata = () => {
+                    updateDebugInfo('Video loaded successfully');
+                    reportStatus('playing', null);
+                };
+                
+                video.onerror = (e) => {
+                    showError(`Video error: ${video.error?.message || 'Unknown error'}`);
+                    reportStatus('error', video.error?.message);
+                };
+                
+                await video.play();
             } catch (error) {
                 console.error('Error playing video:', error);
-                showError('Error playing video');
+                showError('Error playing video: ' + error.message);
                 reportStatus('error', error.message);
             }
         }
@@ -104,6 +149,7 @@
         // Function to check for new content
         async function checkContent() {
             try {
+                updateDebugInfo('Checking for content...');
                 const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
                     headers: {
                         'X-API-Key': API_CONFIG.API_KEY
@@ -111,16 +157,20 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error('Failed to fetch content');
+                    throw new Error(`Server error: ${response.status}`);
                 }
 
                 const data = await response.json();
+                console.log('Content response:', data);
+                
                 if (data.content_url) {
                     await updateVideo(data.content_url);
+                } else {
+                    updateDebugInfo('No content URL received from server');
                 }
             } catch (error) {
                 console.error('Error checking content:', error);
-                showError('Error checking for new content');
+                showError('Error checking for new content: ' + error.message);
                 reportStatus('error', error.message);
             }
         }
