@@ -101,6 +101,7 @@
         let isOnline = false;
         let lastStatusUpdate = 0;
         let statusUpdateRetries = 0;
+        let lastError = null;
 
         // Debug logging with timestamp
         function log(msg, type = 'info') {
@@ -108,6 +109,7 @@
             const logMsg = `[${timestamp}] ${type.toUpperCase()}: ${msg}`;
             console.log(logMsg);
             debugInfo.innerHTML = logMsg + '<br>' + debugInfo.innerHTML;
+            debugInfo.style.display = 'block'; // Always show debug during development
         }
 
         // Update online status
@@ -135,7 +137,10 @@
             statusText.textContent = 'Connecting...';
             
             try {
-                const response = await fetch('https://vinculo.com.py/new-player/api/status.php', {
+                const endpoint = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`;
+                log(`Reporting status to: ${endpoint}`, 'info');
+                
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -156,7 +161,8 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
                 }
 
                 const data = await response.json();
@@ -184,22 +190,34 @@
         // Simple video player
         async function initPlayer() {
             try {
-                // Preload video
-                const videoUrl = 'sample.mp4';
+                // Use the configured video path
+                const videoUrl = API_CONFIG.LOCAL_VIDEO;
+                log(`Loading video: ${videoUrl}`, 'info');
+                
+                // Show loading state
                 videoPlayer.style.display = 'none';
                 
+                // Set up video events
                 videoPlayer.onloadeddata = () => {
                     videoPlayer.style.display = 'block';
                     log('Video loaded successfully', 'success');
-                    videoPlayer.play().catch(e => log('Play error: ' + e, 'error'));
+                    videoPlayer.play()
+                        .then(() => log('Video playback started', 'success'))
+                        .catch(e => {
+                            lastError = e.message;
+                            log('Play error: ' + e.message, 'error');
+                        });
                 };
-                
-                videoPlayer.src = videoUrl;
                 
                 videoPlayer.onerror = (e) => {
                     lastError = videoPlayer.error ? videoPlayer.error.message : 'Unknown error';
                     log('Video Error: ' + lastError, 'error');
+                    // Try to load the video again after error
+                    setTimeout(initPlayer, 5000);
                 };
+                
+                // Load the video
+                videoPlayer.src = videoUrl;
                 
                 // Monitor performance
                 let lastTime = 0;
@@ -215,6 +233,8 @@
             } catch (e) {
                 lastError = e.message;
                 log('Init error: ' + e.message, 'error');
+                // Try to initialize again after error
+                setTimeout(initPlayer, 5000);
             }
         }
 
@@ -223,20 +243,19 @@
         window.addEventListener('offline', updateOnlineStatus);
         updateOnlineStatus();
         controls.style.display = 'block'; // Always show controls for debugging
+        debugInfo.style.display = 'block'; // Always show debug during development
 
         // Start player
         initPlayer();
         
-        // Set up status reporting interval
+        // Set up status reporting interval with immediate first report
+        reportStatus();
         setInterval(() => {
             if (Date.now() - lastStatusUpdate >= API_CONFIG.UPDATE_INTERVAL) {
                 reportStatus();
             }
         }, 5000); // Check every 5 seconds
-        
-        // Initial status report
-        reportStatus();
-        
+
         // Add keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'd') {
