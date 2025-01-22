@@ -98,7 +98,7 @@ check_video() {
     if [ ! -f "sample.mp4" ]; then
         log "ERROR: source video sample.mp4 not found"
         return 1
-    }
+    fi
 
     # Check if optimized video exists and is valid
     if [ ! -f "optimized.mp4" ] || ! ffmpeg -v error -i optimized.mp4 -f null - >/dev/null 2>&1; then
