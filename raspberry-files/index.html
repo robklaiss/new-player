@@ -16,41 +16,47 @@
             height: 100vh;
             background: #000;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
         #videoPlayer {
             width: 100%;
             height: 100%;
             object-fit: contain;
         }
-        #errorMessage {
-            display: none;
+        #debugInfo {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            padding: 20px;
+            border-radius: 5px;
+            font-size: 18px;
+            z-index: 1000;
+            white-space: pre-line;
+            text-align: left;
+        }
+        #errorMessage {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.8);
             color: white;
             padding: 20px;
             border-radius: 5px;
             text-align: center;
-            font-family: Arial, sans-serif;
-        }
-        #debugInfo {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
+            font-size: 18px;
+            z-index: 1001;
         }
     </style>
 </head>
 <body>
     <video id="videoPlayer" autoplay loop muted playsinline></video>
     <div id="errorMessage"></div>
-    <div id="debugInfo"></div>
+    <div id="debugInfo">Initializing...</div>
 
     <script src="config.js"></script>
     <script>
@@ -59,12 +65,15 @@
         const debugInfo = document.getElementById('debugInfo');
         
         function updateDebugInfo(message) {
-            debugInfo.innerHTML = `
-                Last Update: ${new Date().toLocaleTimeString()}<br>
-                Status: ${message}<br>
-                Current URL: ${currentVideoUrl || 'None'}<br>
-                Device ID: ${API_CONFIG.DEVICE_ID}
+            const info = `
+Last Update: ${new Date().toLocaleTimeString()}
+Status: ${message}
+Current URL: ${currentVideoUrl || 'None'}
+Device ID: ${API_CONFIG.DEVICE_ID}
+API Base URL: ${API_CONFIG.BASE_URL}
             `;
+            console.log(info); // Log to console as well
+            debugInfo.textContent = info;
         }
         
         // Function to show error message
@@ -76,7 +85,39 @@
             errorMessage.style.display = 'block';
             setTimeout(() => {
                 errorMessage.style.display = 'none';
-            }, 5000);
+            }, 10000); // Show for 10 seconds
+        }
+
+        // Function to check for new content
+        async function checkContent() {
+            try {
+                updateDebugInfo('Checking for content...');
+                const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`;
+                console.log('Fetching content from:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'X-API-Key': API_CONFIG.API_KEY
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Content response:', data);
+                
+                if (data.content_url) {
+                    updateDebugInfo('Content URL received: ' + data.content_url);
+                    await updateVideo(data.content_url);
+                } else {
+                    updateDebugInfo('No content URL received from server');
+                }
+            } catch (error) {
+                console.error('Error checking content:', error);
+                showError('Error checking for new content: ' + error.message);
+            }
         }
 
         // Function to update video source
@@ -86,37 +127,26 @@
                 return;
             }
             
-            if (videoUrl === currentVideoUrl) return;
-            
             updateDebugInfo('Loading video: ' + videoUrl);
             const video = document.getElementById('videoPlayer');
             
             try {
-                // First try to fetch the video to ensure it exists
-                const response = await fetch(videoUrl, { method: 'HEAD' });
-                if (!response.ok) {
-                    throw new Error(`Video not found (${response.status})`);
-                }
-                
                 video.src = videoUrl;
                 currentVideoUrl = videoUrl;
                 
-                // Add event listeners for video
                 video.onloadeddata = () => {
                     updateDebugInfo('Video loaded successfully');
-                    reportStatus('playing', null);
+                    debugInfo.style.display = 'none'; // Hide debug info when video plays
                 };
                 
                 video.onerror = (e) => {
                     showError(`Video error: ${video.error?.message || 'Unknown error'}`);
-                    reportStatus('error', video.error?.message);
                 };
                 
                 await video.play();
             } catch (error) {
                 console.error('Error playing video:', error);
                 showError('Error playing video: ' + error.message);
-                reportStatus('error', error.message);
             }
         }
 
@@ -146,36 +176,7 @@
             }
         }
 
-        // Function to check for new content
-        async function checkContent() {
-            try {
-                updateDebugInfo('Checking for content...');
-                const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?device_id=${API_CONFIG.DEVICE_ID}`, {
-                    headers: {
-                        'X-API-Key': API_CONFIG.API_KEY
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log('Content response:', data);
-                
-                if (data.content_url) {
-                    await updateVideo(data.content_url);
-                } else {
-                    updateDebugInfo('No content URL received from server');
-                }
-            } catch (error) {
-                console.error('Error checking content:', error);
-                showError('Error checking for new content: ' + error.message);
-                reportStatus('error', error.message);
-            }
-        }
-
-        // Register service worker
+        // Function to register service worker
         async function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
@@ -235,7 +236,7 @@
         window.addEventListener('load', async () => {
             await registerServiceWorker().catch(console.error);
             
-            // Initial content check
+            updateDebugInfo('Page loaded, checking for content...');
             await checkContent();
             
             // Set up periodic checks
