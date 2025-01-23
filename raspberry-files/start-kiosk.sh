@@ -58,7 +58,7 @@ setup_system() {
     return 0
 }
 
-# Function to check and optimize video
+# Function to check video
 check_video() {
     cd "$KIOSK_DIR" || exit 1
     
@@ -68,29 +68,9 @@ check_video() {
         return 1
     fi
 
-    # Check if optimized video exists and is valid
-    if [ ! -f "optimized.mp4" ] || ! ffmpeg -v error -i optimized.mp4 -f null - >/dev/null 2>&1; then
-        log "Re-encoding video for Raspberry Pi..."
-        
-        # Remove old file if exists
-        rm -f optimized.mp4
-        
-        # Encode for maximum compatibility
-        ffmpeg -i sample.mp4 \
-            -c:v libx264 \
-            -profile:v baseline \
-            -level 3.0 \
-            -pix_fmt yuv420p \
-            -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-            -c:a aac \
-            -b:a 128k \
-            -movflags +faststart \
-            optimized.mp4
-    fi
-
-    # Verify the optimized video
-    if ! ffmpeg -v error -i optimized.mp4 -f null - >/dev/null 2>&1; then
-        log "ERROR: Failed to create valid optimized video"
+    # Verify the video is valid
+    if ! ffmpeg -v error -i sample.mp4 -f null - >/dev/null 2>&1; then
+        log "ERROR: Invalid video file"
         return 1
     fi
 
@@ -158,9 +138,9 @@ setup_system || {
     exit 1
 }
 
-# Check and optimize video
+# Check video
 check_video || {
-    log "ERROR: Failed to check/optimize video"
+    log "ERROR: Failed to check video"
     exit 1
 }
 
