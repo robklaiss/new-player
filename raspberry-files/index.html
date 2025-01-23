@@ -1,42 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiosk Player</title>
+    <title>Kiosk Video Player</title>
     <style>
         body {
             margin: 0;
             padding: 0;
+            background: black;
             overflow: hidden;
-            background: #000;
         }
-        #video-container {
+        #videoPlayer {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-        }
-        video {
-            width: 100%;
-            height: 100%;
             object-fit: contain;
+        }
+        #debugInfo {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div id="video-container">
-        <video id="player" autoplay></video>
-    </div>
+    <video id="videoPlayer" autoplay></video>
+    <div id="debugInfo"></div>
     <script src="config.js"></script>
-    <script src="service-worker.js"></script>
+    <script src="player.js"></script>
     <script>
-        const videoPlayer = document.getElementById('player');
+        const videoPlayer = document.getElementById('videoPlayer');
         const debugInfo = document.getElementById('debugInfo');
-        const controls = document.getElementById('controls');
-        const statusIndicator = document.querySelector('.status-indicator');
-        const statusText = document.querySelector('.status-text');
         let isOnline = false;
         let lastStatusUpdate = 0;
         let statusUpdateRetries = 0;
@@ -55,8 +55,6 @@
         function updateOnlineStatus() {
             const wasOnline = isOnline;
             isOnline = navigator.onLine;
-            statusIndicator.className = 'status-indicator ' + (isOnline ? 'online' : 'offline');
-            statusText.textContent = isOnline ? 'Online' : 'Offline';
             
             if (isOnline && !wasOnline) {
                 log('Connection restored, reporting status...', 'info');
@@ -67,14 +65,9 @@
         // Report status to server
         async function reportStatus() {
             if (!isOnline) {
-                statusIndicator.className = 'status-indicator offline';
-                statusText.textContent = 'Offline';
                 return;
             }
 
-            statusIndicator.className = 'status-indicator connecting';
-            statusText.textContent = 'Connecting...';
-            
             try {
                 const endpoint = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATUS}`;
                 log(`Reporting status to: ${endpoint}`, 'info');
@@ -108,16 +101,12 @@
                 log('Status reported successfully', 'success');
                 statusUpdateRetries = 0;
                 lastStatusUpdate = Date.now();
-                
-                statusIndicator.className = 'status-indicator online';
-                statusText.textContent = 'Connected';
             } catch (error) {
                 log('Error reporting status: ' + error.message, 'error');
                 statusUpdateRetries++;
                 
                 if (statusUpdateRetries >= 3) {
-                    statusIndicator.className = 'status-indicator offline';
-                    statusText.textContent = 'Connection Failed';
+                    log('Connection Failed', 'error');
                 }
                 
                 // Exponential backoff for retries
@@ -133,12 +122,11 @@
                 const videoUrl = API_CONFIG.LOCAL_VIDEO;
                 log(`Loading video: ${videoUrl}`, 'info');
                 
-                // Show loading state
-                videoPlayer.style.display = 'none';
+                // Load the video
+                videoPlayer.src = videoUrl;
                 
                 // Set up video events
                 videoPlayer.onloadeddata = () => {
-                    videoPlayer.style.display = 'block';
                     log('Video loaded successfully', 'success');
                     videoPlayer.play()
                         .then(() => log('Video playback started', 'success'))
@@ -154,21 +142,6 @@
                     // Try to load the video again after error
                     setTimeout(initPlayer, 5000);
                 };
-                
-                // Load the video
-                videoPlayer.src = videoUrl;
-                
-                // Monitor performance
-                let lastTime = 0;
-                videoPlayer.ontimeupdate = () => {
-                    if (lastTime > 0) {
-                        const diff = videoPlayer.currentTime - lastTime;
-                        if (diff > 0.5) {
-                            log('Frame skip detected', 'warning');
-                        }
-                    }
-                    lastTime = videoPlayer.currentTime;
-                };
             } catch (e) {
                 lastError = e.message;
                 log('Init error: ' + e.message, 'error');
@@ -181,8 +154,6 @@
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
         updateOnlineStatus();
-        controls.style.display = 'block'; // Always show controls for debugging
-        debugInfo.style.display = 'block'; // Always show debug during development
 
         // Start player
         initPlayer();
