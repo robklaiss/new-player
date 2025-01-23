@@ -1,10 +1,7 @@
 // API Configuration
 const API_CONFIG = {
-    // Use local video file for testing
-    TESTING_MODE: true,
-    LOCAL_VIDEO: 'http://localhost:8000/sample.mp4',
     // API settings
-    BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://vinculo.com.py/new-player',
+    BASE_URL: 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
     DEVICE_ID: null,
     PAIRED: false,
@@ -15,7 +12,8 @@ const API_CONFIG = {
         UPDATE: '/api/update.php',
         STATUS: '/api/status.php',
         DEVICES: '/api/devices.php',
-        DEVICE_CONFIG: '/device_config.json'
+        DEVICE_CONFIG: '/device_config.json',
+        VIDEOS: '/videos'  // Directory containing videos
     },
     VIDEO_CONFIG: {
         autoRestart: true,
@@ -29,52 +27,45 @@ const API_CONFIG = {
 // Load device configuration
 async function loadDeviceConfig() {
     try {
-        const response = await fetch(API_CONFIG.ENDPOINTS.DEVICE_CONFIG);
-        if (!response.ok) throw new Error('Failed to load device config');
-        
+        const response = await fetch(API_CONFIG.BASE_URL + API_CONFIG.ENDPOINTS.DEVICE_CONFIG);
         const config = await response.json();
-        API_CONFIG.DEVICE_ID = config.device_id;
-        API_CONFIG.PAIRED = config.paired || false;
         
-        // Show device ID if not paired
-        if (!API_CONFIG.PAIRED) {
-            showDeviceId(config.device_id);
+        if (config.device_id) {
+            API_CONFIG.DEVICE_ID = config.device_id;
+            API_CONFIG.PAIRED = true;
+            return true;
         }
         
-        return config;
+        // Generate device ID if not configured
+        if (!API_CONFIG.DEVICE_ID) {
+            API_CONFIG.DEVICE_ID = 'KIOSK_' + Math.random().toString(36).substr(2, 9);
+            showDeviceId(API_CONFIG.DEVICE_ID);
+        }
+        
+        return false;
     } catch (error) {
         console.error('Error loading device config:', error);
-        return null;
+        return false;
     }
 }
 
+// Show device ID on screen
 function showDeviceId(deviceId) {
-    const existingElement = document.getElementById('device-id-display');
-    if (existingElement) {
-        existingElement.remove();
-    }
-
     const deviceIdElement = document.createElement('div');
-    deviceIdElement.id = 'device-id-display';
-    deviceIdElement.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 15px;
-        border-radius: 5px;
-        font-family: monospace;
-        z-index: 9999;
-        text-align: center;
-    `;
-    
+    deviceIdElement.style.position = 'fixed';
+    deviceIdElement.style.top = '50%';
+    deviceIdElement.style.left = '50%';
+    deviceIdElement.style.transform = 'translate(-50%, -50%)';
+    deviceIdElement.style.color = 'white';
+    deviceIdElement.style.fontSize = '36px';
+    deviceIdElement.style.fontWeight = 'bold';
+    deviceIdElement.style.textAlign = 'center';
+    deviceIdElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
     deviceIdElement.innerHTML = `
-        <h3 style="margin: 0 0 10px 0;">Device ID:</h3>
-        <code style="font-size: 24px;">${deviceId}</code>
-        <p style="margin: 10px 0 0 0; font-size: 14px;">Enter this ID in the Kiosk Device Manager to pair</p>
+        <div>Device ID:</div>
+        <div style="font-size: 48px; margin-top: 20px;">${deviceId}</div>
+        <div style="font-size: 24px; margin-top: 20px;">Enter this ID in the admin panel to pair the device</div>
     `;
-    
     document.body.appendChild(deviceIdElement);
 }
 
