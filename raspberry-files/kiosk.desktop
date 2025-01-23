@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Kiosk
-Exec=/bin/bash /var/www/kiosk/start-kiosk.sh
+Exec=bash -c "sleep 10 && DISPLAY=:0 /bin/bash /var/www/kiosk/start-kiosk.sh"
 X-GNOME-Autostart-enabled=true
 Terminal=false
 Hidden=false
+StartupNotify=false
+X-GNOME-Autostart-Delay=5
