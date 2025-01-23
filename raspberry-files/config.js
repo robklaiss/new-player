@@ -2,9 +2,9 @@
 const API_CONFIG = {
     // Use local video file for testing
     TESTING_MODE: true,
-    LOCAL_VIDEO: 'http://localhost/optimized.mp4',
+    LOCAL_VIDEO: 'http://localhost:8000/sample.mp4',
     // API settings
-    BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost' : 'https://vinculo.com.py/new-player',
+    BASE_URL: window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
     DEVICE_ID: null,
     PAIRED: false,
