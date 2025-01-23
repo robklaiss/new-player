@@ -102,7 +102,13 @@ log "To check the status, run: sudo systemctl status kiosk.service"
 log "To view logs, run: journalctl -u kiosk.service -f"
 
 # Set up autostart
+log "Setting up autostart..."
 mkdir -p /home/infoactive/.config/autostart
-cp "$KIOSK_DIR/kiosk.desktop" /home/infoactive/.config/autostart/
-chown -R infoactive:infoactive /home/infoactive/.config/autostart
-chmod +x /home/infoactive/.config/autostart/kiosk.desktop
+cp "$REPO_DIR/kiosk.desktop" /home/infoactive/.config/autostart/
+if [ -f "/home/infoactive/.config/autostart/kiosk.desktop" ]; then
+    chown -R infoactive:infoactive /home/infoactive/.config/autostart
+    chmod +x /home/infoactive/.config/autostart/kiosk.desktop
+else
+    log "ERROR: Failed to copy kiosk.desktop to autostart directory"
+    exit 1
+fi
