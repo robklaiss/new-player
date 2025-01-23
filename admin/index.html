@@ -94,6 +94,74 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Load videos function
+        function loadVideos() {
+            fetch('videos.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const videoList = document.getElementById('videoList');
+                        videoList.innerHTML = '';
+                        
+                        data.videos.forEach(video => {
+                            const size = (video.size / (1024 * 1024)).toFixed(2); // Convert to MB
+                            const date = new Date(video.modified * 1000).toLocaleString();
+                            
+                            const item = document.createElement('div');
+                            item.className = 'list-group-item';
+                            item.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">${video.filename}</h6>
+                                        <small class="text-muted">Size: ${size} MB | Modified: ${date}</small>
+                                    </div>
+                                    <div>
+                                        <a href="${video.url}" class="btn btn-sm btn-outline-primary me-2" target="_blank">
+                                            Preview
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteVideo('${video.filename}')">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                            videoList.appendChild(item);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading videos:', error));
+        }
+
+        // Delete video function
+        function deleteVideo(filename) {
+            if (!confirm('Are you sure you want to delete this video?')) {
+                return;
+            }
+
+            fetch('videos.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    filename: filename
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadVideos(); // Reload the list
+                } else {
+                    alert('Error deleting video: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting video. Please try again.');
+            });
+        }
+
         // Upload handling
         document.getElementById('uploadForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -127,6 +195,7 @@
                     uploadMessage.className = 'alert alert-success';
                     uploadMessage.textContent = 'Video uploaded successfully!';
                     fileInput.value = ''; // Clear the file input
+                    loadVideos(); // Reload the video list
                 } else {
                     uploadMessage.className = 'alert alert-danger';
                     uploadMessage.textContent = 'Upload failed: ' + (data.error || 'Unknown error');
@@ -160,7 +229,7 @@
                             deviceCard.innerHTML = `
                                 <div class="card h-100">
                                     <div class="card-body">
-                                        <h5 class="card-title">${device.name}</h5>
+                                        <h5 class="card-title">${device.name || device.id}</h5>
                                         <p class="card-text">
                                             <small class="text-muted">ID: ${device.id}</small><br>
                                             Status: <span class="badge ${device.status === 'online' ? 'bg-success' : 'bg-danger'}">${device.status}</span><br>
@@ -213,11 +282,13 @@
             });
         }
 
-        // Load devices on page load
+        // Load everything when page loads
         document.addEventListener('DOMContentLoaded', () => {
             loadDevices();
-            // Refresh device list every 30 seconds
+            loadVideos();
+            // Refresh lists periodically
             setInterval(loadDevices, 30000);
+            setInterval(loadVideos, 30000);
         });
     </script>
 </body>
