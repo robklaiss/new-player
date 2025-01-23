@@ -1,43 +1,40 @@
 <?php
-require_once 'log.php';
 header('Content-Type: application/json');
 
-$response = ['success' => false, 'videos' => [], 'error' => null];
-
 try {
-    log_event('videos_list_request', ['ip' => $_SERVER['REMOTE_ADDR']]);
+    $videosFile = '../data/videos.json';
+    if (!file_exists($videosFile)) {
+        throw new Exception('Videos file not found');
+    }
 
-    $videosDir = '../videos';
-    $videos = [];
-    
-    if (is_dir($videosDir)) {
-        $files = scandir($videosDir);
-        foreach ($files as $file) {
-            if ($file !== '.' && $file !== '..' && !is_dir($videosDir . '/' . $file)) {
-                $filePath = $videosDir . '/' . $file;
-                $videos[] = [
-                    'name' => $file,
-                    'size' => filesize($filePath),
-                    'modified' => filemtime($filePath)
-                ];
-            }
+    $videos = json_decode(file_get_contents($videosFile), true);
+    if (!isset($videos['videos'])) {
+        $videos = ['videos' => []];
+    }
+
+    // Get video details
+    $videoList = [];
+    foreach ($videos['videos'] as $filename) {
+        $path = '../videos/' . $filename;
+        if (file_exists($path)) {
+            $videoList[] = [
+                'filename' => $filename,
+                'size' => filesize($path),
+                'modified' => filemtime($path),
+                'url' => '../videos/' . $filename
+            ];
         }
     }
-    
-    $response['success'] = true;
-    $response['videos'] = $videos;
 
-    log_event('videos_list_success', [
-        'count' => count($videos),
-        'total_size' => array_sum(array_column($videos, 'size'))
+    echo json_encode([
+        'success' => true,
+        'videos' => $videoList
     ]);
 
 } catch (Exception $e) {
     http_response_code(500);
-    $response['error'] = $e->getMessage();
-    log_event('videos_list_error', [
+    echo json_encode([
+        'success' => false,
         'error' => $e->getMessage()
     ]);
 }
-
-echo json_encode($response);
