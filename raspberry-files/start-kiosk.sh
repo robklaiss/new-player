@@ -81,6 +81,12 @@ check_video() {
 start_http_server() {
     cd "$KIOSK_DIR" || exit 1
     
+    # Check if index.html exists
+    if [ ! -f "index.html" ]; then
+        log "ERROR: index.html not found in $KIOSK_DIR"
+        return 1
+    fi
+    
     # Check if port is already in use
     if ! lsof -i:$HTTP_PORT > /dev/null 2>&1; then
         log "Starting HTTP server on port $HTTP_PORT..."
@@ -88,12 +94,13 @@ start_http_server() {
         sleep 2
     fi
 
-    # Verify server is running
-    if ! curl -s http://localhost:$HTTP_PORT > /dev/null; then
-        log "ERROR: Failed to start HTTP server"
+    # Verify server is running and can serve index.html
+    if ! curl -s http://localhost:$HTTP_PORT/index.html > /dev/null; then
+        log "ERROR: Failed to access index.html through HTTP server"
         return 1
     fi
 
+    log "HTTP server running and serving index.html"
     return 0
 }
 
