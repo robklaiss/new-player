@@ -77,7 +77,7 @@ check_video() {
         
         # Encode for maximum compatibility
         ffmpeg -i sample.mp4 \
-            -c:v h264_omx \
+            -c:v libx264 \
             -profile:v baseline \
             -level 3.0 \
             -pix_fmt yuv420p \
