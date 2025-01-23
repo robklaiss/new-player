@@ -2,9 +2,10 @@
 header('Content-Type: application/json');
 
 try {
-    // Define absolute paths
-    $videosDir = '/var/www/kiosk/videos';
-    $dataDir = '/var/www/kiosk/data';
+    // Define paths relative to the script location
+    $baseDir = dirname(__DIR__); // Gets parent directory of admin/
+    $videosDir = $baseDir . '/videos';
+    $dataDir = $baseDir . '/data';
     $videosFile = $dataDir . '/videos.json';
     
     if (!file_exists($videosFile)) {
