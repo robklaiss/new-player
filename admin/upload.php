@@ -63,10 +63,12 @@ try {
         throw new Exception('Invalid file type. Only MP4 and WebM videos are allowed.');
     }
 
+    // Define absolute paths
+    $videosDir = '/var/www/kiosk/videos';
+    $dataDir = '/var/www/kiosk/data';
+
     // Use original filename but make it safe
     $filename = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $file['name']);
-    $videosDir = '../videos';
-    $dataDir = '../data';
     $targetPath = $videosDir . '/' . $filename;
 
     // Debug paths
