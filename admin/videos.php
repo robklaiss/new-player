@@ -2,7 +2,11 @@
 header('Content-Type: application/json');
 
 try {
-    $videosFile = '../data/videos.json';
+    // Define absolute paths
+    $videosDir = '/var/www/kiosk/videos';
+    $dataDir = '/var/www/kiosk/data';
+    $videosFile = $dataDir . '/videos.json';
+    
     if (!file_exists($videosFile)) {
         throw new Exception('Videos file not found');
     }
@@ -20,7 +24,7 @@ try {
         }
         
         $filename = $input['filename'];
-        $videoPath = '../videos/' . $filename;
+        $videoPath = $videosDir . '/' . $filename;
         
         // Validate filename to prevent directory traversal
         if (strpos($filename, '/') !== false || strpos($filename, '\\') !== false) {
@@ -59,13 +63,13 @@ try {
     // Get video details
     $videoList = [];
     foreach ($videos['videos'] as $filename) {
-        $path = '../videos/' . $filename;
+        $path = $videosDir . '/' . $filename;
         if (file_exists($path)) {
             $videoList[] = [
                 'filename' => $filename,
                 'size' => filesize($path),
                 'modified' => filemtime($path),
-                'url' => '../videos/' . $filename
+                'url' => '/kiosk/videos/' . $filename
             ];
         }
     }
