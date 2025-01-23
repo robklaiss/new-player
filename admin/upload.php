@@ -63,9 +63,10 @@ try {
         throw new Exception('Invalid file type. Only MP4 and WebM videos are allowed.');
     }
 
-    // Define absolute paths
-    $videosDir = '/var/www/kiosk/videos';
-    $dataDir = '/var/www/kiosk/data';
+    // Define paths relative to the script location
+    $baseDir = dirname(__DIR__); // Gets parent directory of admin/
+    $videosDir = $baseDir . '/videos';
+    $dataDir = $baseDir . '/data';
 
     // Use original filename but make it safe
     $filename = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $file['name']);
