@@ -50,6 +50,40 @@
             console.log(msg);
         }
 
+        // Delete video function
+        function deleteVideo(filename) {
+            debug('Attempting to delete: ' + filename);
+            if (!confirm('Are you sure you want to delete this video?')) {
+                return;
+            }
+
+            fetch('videos.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    filename: filename
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    debug('Video deleted successfully');
+                    loadVideos(); // Reload the list
+                } else {
+                    debug('Delete failed: ' + data.error);
+                    alert('Error deleting video: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                debug('Delete error: ' + error);
+                console.error('Error:', error);
+                alert('Error deleting video. Please try again.');
+            });
+        }
+
         // Load videos function
         function loadVideos() {
             debug('Loading videos...');
