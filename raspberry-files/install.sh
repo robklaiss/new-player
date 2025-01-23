@@ -100,3 +100,9 @@ sudo systemctl restart kiosk.service
 log "Installation complete! The kiosk will start automatically on boot."
 log "To check the status, run: sudo systemctl status kiosk.service"
 log "To view logs, run: journalctl -u kiosk.service -f"
+
+# Set up autostart
+mkdir -p /home/infoactive/.config/autostart
+cp "$KIOSK_DIR/kiosk.desktop" /home/infoactive/.config/autostart/
+chown -R infoactive:infoactive /home/infoactive/.config/autostart
+chmod +x /home/infoactive/.config/autostart/kiosk.desktop
