@@ -7,6 +7,50 @@ try {
         throw new Exception('Videos file not found');
     }
 
+    // Handle POST request for deletion
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!isset($input['action']) || $input['action'] !== 'delete') {
+            throw new Exception('Invalid action');
+        }
+        
+        if (!isset($input['filename'])) {
+            throw new Exception('Filename not provided');
+        }
+        
+        $filename = $input['filename'];
+        $videoPath = '../videos/' . $filename;
+        
+        // Validate filename to prevent directory traversal
+        if (strpos($filename, '/') !== false || strpos($filename, '\\') !== false) {
+            throw new Exception('Invalid filename');
+        }
+        
+        // Delete the file if it exists
+        if (file_exists($videoPath)) {
+            if (!unlink($videoPath)) {
+                throw new Exception('Failed to delete video file');
+            }
+        }
+        
+        // Update videos.json
+        $videos = json_decode(file_get_contents($videosFile), true);
+        if (!isset($videos['videos'])) {
+            $videos = ['videos' => []];
+        }
+        
+        $videos['videos'] = array_values(array_diff($videos['videos'], [$filename]));
+        
+        if (!file_put_contents($videosFile, json_encode($videos, JSON_PRETTY_PRINT))) {
+            throw new Exception('Failed to update videos.json');
+        }
+        
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    // Handle GET request for listing videos
     $videos = json_decode(file_get_contents($videosFile), true);
     if (!isset($videos['videos'])) {
         $videos = ['videos' => []];
