@@ -1,6 +1,6 @@
 [Unit]
 Description=Kiosk Video Player
-After=network.target device-monitor.service
+After=network.target graphical-session.target
 
 [Service]
 Type=simple
@@ -9,16 +9,16 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 WorkingDirectory=/var/www/kiosk
 
 # Start the kiosk browser
-ExecStart=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost/index.html
+ExecStartPre=/bin/sh -c 'until ping -c1 google.com; do sleep 1; done'
+ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 
 # Restart settings
 Restart=always
 RestartSec=10
-StartLimitInterval=5min
-StartLimitBurst=3
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
