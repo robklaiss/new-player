@@ -28,162 +28,84 @@ CHROME_FLAGS="
     --disable-backgrounding-occluded-windows
     --disk-cache-size=1
     --media-cache-size=1
+    --process-per-site
+    --single-process
 "
+
+# Create lock file
+LOCK_FILE="/tmp/kiosk.lock"
 
 # Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# Debug function
-debug() {
-    if [ "$DEBUG" = "true" ]; then
-        log "DEBUG: $1"
+# Check if already running
+if [ -f "$LOCK_FILE" ]; then
+    PID=$(cat "$LOCK_FILE")
+    if ps -p $PID > /dev/null 2>&1; then
+        log "Kiosk already running with PID $PID"
+        exit 1
+    else
+        log "Stale lock file found, removing"
+        rm -f "$LOCK_FILE"
     fi
-}
+fi
 
-# Function to setup system requirements
-setup_system() {
-    # Set display
-    export DISPLAY=:0
-
-    # Disable screen blanking
-    xset s off
-    xset s noblank
-    xset -dpms
-
-    # Hide mouse cursor
-    unclutter -idle 0 &
-
-    # Set volume to maximum
-    amixer -q sset Master 100%
-    amixer -q sset Master unmute
-
-    # Kill any existing processes
-    pkill -f chromium || true
-    pkill -f python3 || true
-
-    return 0
-}
-
-# Function to check video
-check_video() {
-    cd "$KIOSK_DIR" || exit 1
-    
-    # Check if source video exists
-    if [ ! -f "sample.mp4" ]; then
-        log "ERROR: source video sample.mp4 not found"
-        return 1
-    fi
-
-    # Verify the video is valid
-    if ! ffmpeg -v error -i sample.mp4 -f null - >/dev/null 2>&1; then
-        log "ERROR: Invalid video file"
-        return 1
-    fi
-
-    return 0
-}
-
-# Function to start HTTP server
-start_http_server() {
-    cd "$KIOSK_DIR" || exit 1
-    
-    # Check if index.html exists
-    if [ ! -f "index.html" ]; then
-        log "ERROR: index.html not found in $KIOSK_DIR"
-        return 1
-    fi
-    
-    # Check if port is already in use
-    if ! lsof -i:$HTTP_PORT > /dev/null 2>&1; then
-        log "Starting HTTP server on port $HTTP_PORT..."
-        python3 -m http.server $HTTP_PORT &
-        sleep 2
-    fi
-
-    # Verify server is running and can serve index.html
-    if ! curl -s http://localhost:$HTTP_PORT/index.html > /dev/null; then
-        log "ERROR: Failed to access index.html through HTTP server"
-        return 1
-    fi
-
-    log "HTTP server running and serving index.html"
-    return 0
-}
-
-# Function to start browser in kiosk mode
-start_browser() {
-    # Wait for X server
-    until xset q &>/dev/null; do
-        sleep 1
-    done
-
-    # Start Chromium in kiosk mode
-    log "Starting Chromium in kiosk mode..."
-    chromium-browser \
-        $CHROME_FLAGS \
-        --app=http://localhost:$HTTP_PORT/index.html &
-
-    # Wait for browser to start
-    sleep 5
-
-    # Move mouse out of the way
-    xdotool mousemove 9999 9999
-
-    return 0
-}
+# Create lock file with current PID
+echo $$ > "$LOCK_FILE"
 
 # Cleanup function
 cleanup() {
+    log "Cleaning up..."
     pkill -f chromium || true
     pkill -f "python3 -m http.server" || true
+    rm -f "$LOCK_FILE"
     exit 0
 }
 
 # Set up trap for cleanup
 trap cleanup EXIT INT TERM
 
-# Main script
-log "Starting kiosk setup..."
-
-# Setup system requirements
-setup_system || {
-    log "ERROR: Failed to setup system requirements"
-    exit 1
-}
-
-# Check video
-check_video || {
-    log "ERROR: Failed to check video"
-    exit 1
-}
+# Kill any existing instances
+pkill -f chromium || true
+pkill -f "python3 -m http.server" || true
 
 # Start HTTP server
-start_http_server || {
-    log "ERROR: Failed to start HTTP server"
-    exit 1
-}
+log "Starting HTTP server..."
+cd "$KIOSK_DIR"
+python3 -m http.server $HTTP_PORT &
 
-# Start browser
-start_browser || {
-    log "ERROR: Failed to start browser"
-    exit 1
-}
+# Wait for HTTP server to start
+sleep 2
 
-# Keep script running
+# Start Chromium in kiosk mode
+log "Starting Chromium in kiosk mode..."
+chromium-browser \
+    $CHROME_FLAGS \
+    --app=http://localhost:$HTTP_PORT/index.html &
+
+# Wait for browser to start
+sleep 5
+
+# Move mouse out of the way
+xdotool mousemove 9999 9999
+
+# Monitor processes
 while true; do
-    # Check if HTTP server is running
-    if ! curl -s http://localhost:$HTTP_PORT > /dev/null; then
-        log "HTTP server down, restarting..."
-        start_http_server
-    fi
-
-    # Check if browser is running
+    # Check if processes are running
     if ! pgrep -f chromium > /dev/null; then
-        log "Browser down, restarting..."
-        start_browser
+        log "Chromium crashed, restarting..."
+        chromium-browser \
+            $CHROME_FLAGS \
+            --app=http://localhost:$HTTP_PORT/index.html &
     fi
-
-    sleep 30
+    
+    if ! pgrep -f "python3 -m http.server" > /dev/null; then
+        log "HTTP server crashed, restarting..."
+        cd "$KIOSK_DIR"
+        python3 -m http.server $HTTP_PORT &
+    fi
+    
+    sleep 5
 done
