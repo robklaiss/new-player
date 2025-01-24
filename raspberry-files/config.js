@@ -3,7 +3,7 @@ const API_CONFIG = {
     // API settings
     BASE_URL: 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
-    DEVICE_ID: null,
+    DEVICE_ID: 'local-device', // Default device ID for offline mode
     PAIRED: false,
     UPDATE_INTERVAL: 60000,
     CONTENT_CHECK_INTERVAL: 30000,
@@ -13,17 +13,24 @@ const API_CONFIG = {
         STATUS: '/api/status.php',
         DEVICES: '/api/devices.php',
         DEVICE_CONFIG: '/device_config.json',
-        VIDEOS: '/videos'  // Directory containing videos
+        VIDEOS: '/videos'
     },
     VIDEO_CONFIG: {
         autoRestart: true,
         maxRetries: 3,
         retryDelay: 5000,
         defaultVolume: 1.0,
-        hardwareAcceleration: true
+        hardwareAcceleration: true,
+        // Video playback settings
+        playbackRate: 1.0,
+        preload: 'auto',
+        loop: true,
+        muted: true,
+        playsInline: true
     },
     HEADERS: {
-        'X-API-Key': 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
+        'X-API-Key': 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
+        'Content-Type': 'application/json'
     }
 };
 
@@ -31,34 +38,42 @@ const API_CONFIG = {
 async function loadDeviceConfig() {
     try {
         const response = await fetch(API_CONFIG.BASE_URL + API_CONFIG.ENDPOINTS.DEVICE_CONFIG, {
-            headers: API_CONFIG.HEADERS
+            headers: API_CONFIG.HEADERS,
+            timeout: 5000 // 5 second timeout
         });
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
         const config = await response.json();
         
-        // Update configuration
         if (config.deviceId) {
             API_CONFIG.DEVICE_ID = config.deviceId;
             API_CONFIG.PAIRED = true;
             showDeviceId(config.deviceId);
         }
     } catch (error) {
-        console.error('Failed to load device config:', error);
-        showDeviceId('ERROR: ' + error.message);
+        console.warn('Running in offline mode:', error);
+        showDeviceId('LOCAL-KIOSK');
     }
 }
 
 // Show device ID on screen
 function showDeviceId(deviceId) {
-    const deviceIdElement = document.getElementById('device-id');
+    const deviceIdElement = document.getElementById('deviceId');
     if (deviceIdElement) {
         deviceIdElement.textContent = `Device ID: ${deviceId}`;
-        deviceIdElement.style.display = 'block';
+        // Hide after 10 seconds if we're in local mode
+        if (deviceId === 'LOCAL-KIOSK') {
+            setTimeout(() => {
+                deviceIdElement.style.opacity = '0';
+                deviceIdElement.style.transition = 'opacity 1s';
+            }, 10000);
+        }
     } else {
         const deviceIdElement = document.createElement('div');
-        deviceIdElement.id = 'device-id';
+        deviceIdElement.id = 'deviceId';
         deviceIdElement.style.position = 'fixed';
         deviceIdElement.style.top = '50%';
         deviceIdElement.style.left = '50%';
