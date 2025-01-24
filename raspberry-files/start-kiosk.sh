@@ -10,6 +10,7 @@ CHROME_FLAGS="
     --kiosk 
     --noerrdialogs 
     --disable-infobars
+    --no-sandbox
     --autoplay-policy=no-user-gesture-required
     --check-for-update-interval=31536000
     --disable-gpu-vsync
