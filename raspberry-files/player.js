@@ -4,23 +4,39 @@ class VideoPlayer {
         this.playlist = [];
         this.currentIndex = 0;
         this.retryCount = 0;
+        this.isBuffering = false;
         
         // Apply video configuration
         this.configureVideo();
         
         // Set up event listeners
-        this.videoElement.addEventListener('ended', () => this.playNext());
-        this.videoElement.addEventListener('error', (e) => this.handleError(e));
-        this.videoElement.addEventListener('loadeddata', () => this.onVideoLoaded());
-        this.videoElement.addEventListener('waiting', () => this.onVideoWaiting());
-        this.videoElement.addEventListener('playing', () => this.onVideoPlaying());
+        this.setupEventListeners();
         
         // Start the player
         this.init();
     }
     
+    setupEventListeners() {
+        this.videoElement.addEventListener('ended', () => this.playNext());
+        this.videoElement.addEventListener('error', (e) => this.handleError(e));
+        this.videoElement.addEventListener('loadeddata', () => this.onVideoLoaded());
+        this.videoElement.addEventListener('waiting', () => this.onVideoWaiting());
+        this.videoElement.addEventListener('playing', () => this.onVideoPlaying());
+        this.videoElement.addEventListener('progress', () => this.onVideoProgress());
+        this.videoElement.addEventListener('timeupdate', () => this.onTimeUpdate());
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.videoElement.pause();
+            } else {
+                this.videoElement.play().catch(() => {});
+            }
+        });
+    }
+    
     configureVideo() {
-        // Apply video settings from config
+        // Basic configuration
         this.videoElement.defaultPlaybackRate = API_CONFIG.VIDEO_CONFIG.playbackRate;
         this.videoElement.playbackRate = API_CONFIG.VIDEO_CONFIG.playbackRate;
         this.videoElement.volume = API_CONFIG.VIDEO_CONFIG.defaultVolume;
@@ -29,9 +45,21 @@ class VideoPlayer {
         this.videoElement.loop = API_CONFIG.VIDEO_CONFIG.loop;
         this.videoElement.playsInline = API_CONFIG.VIDEO_CONFIG.playsInline;
         
-        // Add hardware acceleration hints
+        // Performance optimizations
         this.videoElement.style.transform = 'translateZ(0)';
         this.videoElement.style.backfaceVisibility = 'hidden';
+        this.videoElement.style.willChange = 'transform';
+        
+        // Set buffer size
+        if ('buffered' in this.videoElement) {
+            this.videoElement.preload = 'auto';
+        }
+        
+        // Force hardware acceleration
+        if (API_CONFIG.VIDEO_CONFIG.forceHardwareAcceleration) {
+            this.videoElement.style.webkitTransform = 'translate3d(0,0,0)';
+            this.videoElement.style.transform = 'translate3d(0,0,0)';
+        }
     }
     
     async init() {
@@ -54,7 +82,7 @@ class VideoPlayer {
         try {
             const response = await fetch(API_CONFIG.BASE_URL + '/api/content.php', {
                 headers: API_CONFIG.HEADERS,
-                timeout: 5000 // 5 second timeout
+                timeout: 5000
             });
             
             if (!response.ok) {
@@ -68,14 +96,12 @@ class VideoPlayer {
                     url: API_CONFIG.BASE_URL + video.url,
                     filename: video.filename
                 }));
-                
                 console.log('Remote playlist updated:', this.playlist);
             } else {
                 console.log('Using local sample video');
             }
         } catch (error) {
             console.warn('Error loading playlist:', error);
-            // Keep using local sample video on error
         }
     }
     
@@ -91,30 +117,62 @@ class VideoPlayer {
         // Reset video element
         this.videoElement.pause();
         this.videoElement.currentTime = 0;
+        
+        // Clear source and load new video
+        this.videoElement.removeAttribute('src');
+        this.videoElement.load();
         this.videoElement.src = video.url;
         
         // Start loading the video
         this.videoElement.load();
         
         // Attempt to play
-        this.videoElement.play()
-            .catch(error => {
+        const playPromise = this.videoElement.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
                 console.error('Error playing video:', error);
                 this.handleError(error);
             });
+        }
     }
     
     onVideoLoaded() {
         console.log('Video loaded successfully');
-        this.retryCount = 0; // Reset retry count on successful load
+        this.retryCount = 0;
+        this.isBuffering = false;
     }
     
     onVideoWaiting() {
         console.log('Video buffering...');
+        this.isBuffering = true;
     }
     
     onVideoPlaying() {
         console.log('Video playing');
+        this.isBuffering = false;
+    }
+    
+    onVideoProgress() {
+        if (this.videoElement.buffered.length > 0) {
+            const bufferedEnd = this.videoElement.buffered.end(this.videoElement.buffered.length - 1);
+            const timeRemaining = this.videoElement.duration - bufferedEnd;
+            if (timeRemaining <= 0.5) {
+                console.log('Video fully buffered');
+            }
+        }
+    }
+    
+    onTimeUpdate() {
+        // Check if we're close to the end of the buffer
+        if (this.videoElement.buffered.length > 0) {
+            const currentTime = this.videoElement.currentTime;
+            const bufferedEnd = this.videoElement.buffered.end(this.videoElement.buffered.length - 1);
+            
+            // If we're getting close to the end of the buffer, try to load more
+            if (bufferedEnd - currentTime < 2) {
+                this.videoElement.load();
+            }
+        }
     }
     
     handleError(error) {
