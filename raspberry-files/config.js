@@ -26,7 +26,14 @@ const API_CONFIG = {
         preload: 'auto',
         loop: true,
         muted: true,
-        playsInline: true
+        playsInline: true,
+        // Performance optimizations
+        bufferingGoal: 2, // seconds
+        maxBufferLength: 30, // seconds
+        backBufferLength: 30, // seconds
+        // Hardware acceleration
+        forceHardwareAcceleration: true,
+        useRequestVideoFrameCallback: true
     },
     HEADERS: {
         'X-API-Key': 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
