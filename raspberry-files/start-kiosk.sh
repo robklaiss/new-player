@@ -3,16 +3,60 @@
 # Configuration
 KIOSK_DIR="/var/www/kiosk"
 HTTP_PORT=8000
-LOCK_FILE="/var/run/kiosk/kiosk.pid"
+LOCK_FILE="/var/run/kiosk/kiosk.pid"  # We'll keep this for now until we verify the correct path
 DISPLAY=:0
 XAUTHORITY=/home/infoactive/.Xauthority
+LOG_FILE="/var/log/kiosk.log"
+
+# Logging function with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Function to check directory/file permissions
+check_path() {
+    local path="$1"
+    local desc="$2"
+    
+    log "Checking $desc: $path"
+    if [ -e "$path" ]; then
+        log "  Exists: Yes"
+        log "  Type: $(stat -c %F "$path")"
+        log "  Permissions: $(stat -c %a "$path")"
+        log "  Owner/Group: $(stat -c %U:%G "$path")"
+        if [ -L "$path" ]; then
+            log "  Symlink points to: $(readlink -f "$path")"
+        fi
+    else
+        log "  Does not exist"
+    fi
+}
+
+# Log system information
+log "=== Starting Kiosk System ==="
+log "User: $(whoami)"
+log "Groups: $(groups)"
+log "UID: $(id -u)"
+log "GID: $(id -g)"
+log "PWD: $(pwd)"
+
+# Check all important paths
+check_path "$KIOSK_DIR" "Kiosk Directory"
+check_path "/var/run" "Run Directory"
+check_path "/run" "Run Directory (alternative)"
+check_path "/run/user/$(id -u)" "User Runtime Directory"
+check_path "$XAUTHORITY" "X Authority File"
+check_path "$LOG_FILE" "Log File"
+check_path "$(dirname "$LOCK_FILE")" "Lock File Directory"
 
 # Export display settings
 export DISPLAY XAUTHORITY
+log "Display: $DISPLAY"
+log "XAuthority: $XAUTHORITY"
 
 # Logging function
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
 # Cleanup function
@@ -73,6 +117,7 @@ CHROME_FLAGS="
 # Ensure lock file directory exists
 sudo mkdir -p /var/run/kiosk || true
 sudo chown infoactive:infoactive /var/run/kiosk || true
+log "Lock file directory created: $(stat -c %a /var/run/kiosk)"
 
 # Configure X11 settings
 log "Configuring X11 settings..."
@@ -87,6 +132,7 @@ sleep 2
 
 # Create new lock file
 echo $$ > "$LOCK_FILE" || true
+log "Lock file created: $(stat -c %a "$LOCK_FILE")"
 
 # Start HTTP server
 log "Starting HTTP server..."
