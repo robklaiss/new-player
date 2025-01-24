@@ -1,22 +1,16 @@
 [Unit]
-Description=Kiosk Video Player
-After=network.target graphical.target
+Description=Chromium Kiosk
+Wants=graphical.target
+After=graphical.target
 
 [Service]
 Type=simple
-User=infoactive
-Group=infoactive
+User=pi
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/infoactive/.Xauthority
-Environment=HOME=/home/infoactive
-WorkingDirectory=/var/www/kiosk
-
-# Start the kiosk
-ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
-
-# Restart settings
-Restart=always
-RestartSec=10
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/bin/bash /home/pi/kiosk.sh
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=graphical.target
