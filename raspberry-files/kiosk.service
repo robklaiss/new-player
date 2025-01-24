@@ -1,24 +1,27 @@
 [Unit]
 Description=Kiosk Video Player
-After=network.target graphical-session.target
+After=network.target graphical.target getty.target
 
 [Service]
 Type=simple
 User=infoactive
 Group=infoactive
+PAMName=login
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 WorkingDirectory=/var/www/kiosk
 
-# Start the kiosk browser
+# Ensure X server is ready
+ExecStartPre=/bin/sh -c 'until xset q >/dev/null 2>&1; do sleep 2; done'
+# Ensure network is available
 ExecStartPre=/bin/sh -c 'until ping -c1 google.com; do sleep 1; done'
+# Start the kiosk
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 
-# Restart settings
 Restart=always
-RestartSec=10
+RestartSec=5
 
 [Install]
 WantedBy=graphical.target
