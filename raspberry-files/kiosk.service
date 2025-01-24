@@ -8,7 +8,7 @@ Type=simple
 User=pi
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/pi/.Xauthority
-ExecStart=/bin/bash /home/pi/kiosk.sh
+ExecStart=/bin/bash /var/www/kiosk/kiosk.sh
 Restart=on-failure
 RestartSec=5
 
