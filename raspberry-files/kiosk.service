@@ -1,7 +1,6 @@
 [Unit]
 Description=Kiosk Video Player
-After=network.target graphical.target getty.target
-Conflicts=getty@tty1.service
+After=network.target graphical.target
 
 [Service]
 Type=simple
@@ -10,31 +9,12 @@ Group=infoactive
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/infoactive/.Xauthority
 Environment=HOME=/home/infoactive
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 WorkingDirectory=/var/www/kiosk
-
-# Ensure clean startup
-RuntimeDirectory=kiosk
-RuntimeDirectoryMode=0755
-PIDFile=/var/run/kiosk/kiosk.pid
-
-# Wait for X11 and network
-ExecStartPre=/bin/sh -c 'until xset q >/dev/null 2>&1; do sleep 2; done'
-ExecStartPre=/bin/sh -c 'until ping -c1 google.com >/dev/null 2>&1; do sleep 1; done'
-
-# Kill any existing processes
-ExecStartPre=/bin/sh -c 'pkill -f "chromium.*--app=http://localhost:8000" || true'
-ExecStartPre=/bin/sh -c 'pkill -f "python3 -m http.server 8000" || true'
-ExecStartPre=/bin/sh -c 'rm -f /var/run/kiosk/kiosk.pid || true'
 
 # Start the kiosk
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
 
-# Cleanup on stop
-ExecStop=/bin/sh -c 'pkill -f "chromium.*--app=http://localhost:8000" || true'
-ExecStop=/bin/sh -c 'pkill -f "python3 -m http.server 8000" || true'
-ExecStop=/bin/sh -c 'rm -f /var/run/kiosk/kiosk.pid || true'
-
+# Restart settings
 Restart=always
 RestartSec=10
 
