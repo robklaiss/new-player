@@ -8,7 +8,7 @@ sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' ~/.config/chromium/Defa
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' ~/.config/chromium/Default/Preferences
 
 # Start Chromium in kiosk mode
-/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost/index.html \
+/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk https://vinculo.com.py/new-player \
     --disable-translate \
     --disable-features=TranslateUI \
     --disable-sync \
