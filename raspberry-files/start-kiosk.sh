@@ -12,15 +12,22 @@ CHROME_FLAGS="
     --disable-infobars
     --no-sandbox
     --autoplay-policy=no-user-gesture-required
-    --check-for-update-interval=31536000
     --disable-gpu-vsync
     --ignore-gpu-blocklist
     --disable-gpu-driver-bug-workarounds
     --enable-gpu-rasterization
     --enable-zero-copy
+    --enable-accelerated-video-decode
+    --enable-accelerated-mjpeg-decode
+    --enable-features=VaapiVideoDecoder
     --disable-features=UseOzonePlatform
     --use-gl=egl
+    --enable-hardware-overlays
     --force-device-scale-factor=1
+    --disable-background-timer-throttling
+    --disable-backgrounding-occluded-windows
+    --disk-cache-size=1
+    --media-cache-size=1
 "
 
 # Logging function
