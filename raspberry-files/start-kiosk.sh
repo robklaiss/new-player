@@ -7,11 +7,20 @@ set -e
 KIOSK_DIR="/var/www/kiosk"
 HTTP_PORT=8000
 LOCK_FILE="/var/run/kiosk/kiosk.pid"
+DISPLAY=:0
+XAUTHORITY=/home/infoactive/.Xauthority
+
+# Export display settings
+export DISPLAY XAUTHORITY
+
 CHROME_FLAGS="
     --kiosk 
     --noerrdialogs 
     --disable-infobars
     --no-sandbox
+    --start-maximized
+    --window-position=0,0
+    --window-size=1920,1080
     --autoplay-policy=no-user-gesture-required
     --disable-gpu-vsync
     --ignore-gpu-blocklist
@@ -31,6 +40,10 @@ CHROME_FLAGS="
     --media-cache-size=1
     --process-per-site
     --single-process
+    --disable-restore-session-state
+    --disable-session-crashed-bubble
+    --disable-infobars
+    --check-for-update-interval=31536000
 "
 
 # Logging function
@@ -46,6 +59,11 @@ cleanup() {
     fi
     pkill -f "chromium.*--app=http://localhost:$HTTP_PORT" || true
     pkill -f "python3 -m http.server $HTTP_PORT" || true
+    
+    # Reset X11 settings
+    xset s on
+    xset +dpms
+    
     exit 0
 }
 
@@ -55,6 +73,12 @@ trap cleanup EXIT INT TERM
 # Ensure lock file directory exists
 mkdir -p /var/run/kiosk
 chown infoactive:infoactive /var/run/kiosk
+
+# Configure X11 settings
+log "Configuring X11 settings..."
+xset -dpms
+xset s off
+xset s noblank
 
 # Kill any existing kiosk processes
 if [ -f "$LOCK_FILE" ]; then
@@ -91,9 +115,13 @@ if ! kill -0 $HTTP_PID 2>/dev/null; then
     exit 1
 fi
 
+# Clear Chromium cache
+rm -rf /home/infoactive/.cache/chromium/* || true
+rm -rf /home/infoactive/.config/chromium/Default/Cache/* || true
+
 # Start Chromium in kiosk mode
 log "Starting Chromium in kiosk mode..."
-chromium-browser $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
+DISPLAY=:0 chromium-browser $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
 CHROME_PID=$!
 
 # Wait for browser to start
@@ -104,6 +132,15 @@ if ! kill -0 $CHROME_PID 2>/dev/null; then
     log "Failed to start browser"
     cleanup
     exit 1
+fi
+
+# Force window to foreground and fullscreen
+sleep 2
+WINDOW_ID=$(xdotool search --onlyvisible --class chromium | head -1)
+if [ ! -z "$WINDOW_ID" ]; then
+    xdotool windowactivate $WINDOW_ID
+    xdotool windowfocus $WINDOW_ID
+    xdotool windowraise $WINDOW_ID
 fi
 
 # Move mouse out of the way
@@ -119,9 +156,17 @@ while true; do
     
     if ! pgrep -f "chromium.*--app=http://localhost:$HTTP_PORT" > /dev/null; then
         log "Chromium crashed, restarting..."
-        chromium-browser $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
+        DISPLAY=:0 chromium-browser $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
         CHROME_PID=$!
         sleep 5
+        
+        # Force window to foreground and fullscreen again
+        WINDOW_ID=$(xdotool search --onlyvisible --class chromium | head -1)
+        if [ ! -z "$WINDOW_ID" ]; then
+            xdotool windowactivate $WINDOW_ID
+            xdotool windowfocus $WINDOW_ID
+            xdotool windowraise $WINDOW_ID
+        fi
     fi
     
     if ! pgrep -f "python3 -m http.server $HTTP_PORT" > /dev/null; then
