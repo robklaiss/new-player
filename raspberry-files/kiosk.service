@@ -13,18 +13,25 @@ Environment=HOME=/home/infoactive
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 WorkingDirectory=/var/www/kiosk
 
-# Ensure only one instance runs
+# Ensure clean startup
 RuntimeDirectory=kiosk
 RuntimeDirectoryMode=0755
+PIDFile=/var/run/kiosk/kiosk.pid
 
-# Ensure clean startup
-ExecStartPre=/bin/sh -c 'pkill chromium || true'
-ExecStartPre=/bin/sh -c 'pkill -f "python3 -m http.server" || true'
+# Kill any existing processes
+ExecStartPre=/bin/sh -c 'pkill -f "chromium.*--app=http://localhost:8000" || true'
+ExecStartPre=/bin/sh -c 'pkill -f "python3 -m http.server 8000" || true'
+ExecStartPre=/bin/sh -c 'rm -f /var/run/kiosk/kiosk.pid || true'
 ExecStartPre=/bin/sh -c 'until xset q >/dev/null 2>&1; do sleep 2; done'
 ExecStartPre=/bin/sh -c 'until ping -c1 google.com >/dev/null 2>&1; do sleep 1; done'
 
 # Start the kiosk
 ExecStart=/bin/bash /var/www/kiosk/start-kiosk.sh
+
+# Cleanup on stop
+ExecStopPost=/bin/sh -c 'pkill -f "chromium.*--app=http://localhost:8000" || true'
+ExecStopPost=/bin/sh -c 'pkill -f "python3 -m http.server 8000" || true'
+ExecStopPost=/bin/sh -c 'rm -f /var/run/kiosk/kiosk.pid || true'
 
 # Restart on failure
 Restart=always
