@@ -13,6 +13,17 @@ XAUTHORITY=/home/infoactive/.Xauthority
 # Export display settings
 export DISPLAY XAUTHORITY
 
+# Wait for X server to be ready
+for i in $(seq 1 60); do
+    if xset q &>/dev/null; then
+        break
+    fi
+    sleep 1
+done
+
+# Ensure we have X server access
+xhost +local:infoactive || true
+
 CHROME_FLAGS="
     --kiosk 
     --noerrdialogs 
