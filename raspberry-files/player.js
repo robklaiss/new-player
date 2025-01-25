@@ -15,19 +15,52 @@ class VideoPlayer {
         this.video.playsInline = true;
         
         // Add video event listeners
+        this.video.addEventListener('loadstart', () => {
+            console.log('Video loadstart');
+            this.updateStatus('Iniciando carga...');
+            this.video.classList.remove('ready');
+        });
+        
+        this.video.addEventListener('loadeddata', () => {
+            console.log('Video loadeddata');
+            this.updateStatus('Video listo');
+            this.video.classList.add('ready');
+        });
+        
         this.video.addEventListener('playing', () => {
+            console.log('Video playing');
             this.updateStatus('Video reproduciendo');
+            this.video.classList.add('ready');
             if (this.loader) this.loader.style.display = 'none';
         });
         
         this.video.addEventListener('waiting', () => {
+            console.log('Video waiting');
             this.updateStatus('Cargando video...');
             if (this.loader) this.loader.style.display = 'block';
         });
         
         this.video.addEventListener('error', (e) => {
-            this.updateStatus('Error al cargar video');
-            console.error('Video error:', e.target.error);
+            const error = e.target.error;
+            let errorMsg = 'Error desconocido';
+            if (error) {
+                switch (error.code) {
+                    case MediaError.MEDIA_ERR_ABORTED:
+                        errorMsg = 'Carga abortada';
+                        break;
+                    case MediaError.MEDIA_ERR_NETWORK:
+                        errorMsg = 'Error de red';
+                        break;
+                    case MediaError.MEDIA_ERR_DECODE:
+                        errorMsg = 'Error de decodificación';
+                        break;
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                        errorMsg = 'Formato no soportado';
+                        break;
+                }
+            }
+            this.updateStatus('Error: ' + errorMsg);
+            console.error('Video error:', error, errorMsg);
         });
         
         // Load and play video
@@ -60,6 +93,8 @@ class VideoPlayer {
                         playPromise.catch(error => {
                             console.error('Error playing video:', error);
                             this.updateStatus('Error al reproducir video');
+                            // Retry after 5 seconds
+                            setTimeout(() => this.loadVideo(), 5000);
                         });
                     }
                 }
