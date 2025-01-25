@@ -95,72 +95,86 @@ class VideoPlayer {
             this.updateStatus('Descargando: ' + video.filename);
             console.log('Downloading:', video.url);
             
-            const response = await fetch(video.url, {
-                mode: 'cors',
-                headers: {
-                    'Accept': 'video/mp4,video/*'
+            // Try with CORS first
+            try {
+                const response = await fetch(video.url, {
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'video/mp4,video/*'
+                    }
+                });
+                
+                console.log('CORS response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
                 }
-            });
-            
-            console.log('Response status:', response.status);
-            console.log('Response headers:', [...response.headers.entries()]);
-            
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
+                
+                const blob = await response.blob();
+                if (blob.size > 0) {
+                    return this.processVideoBlob(blob, video);
+                }
+            } catch (corsError) {
+                console.log('CORS failed, trying no-cors:', corsError);
             }
+            
+            // Fallback to no-cors if CORS fails
+            const response = await fetch(video.url, {
+                mode: 'no-cors'
+            });
+            console.log('No-CORS response received');
             
             const blob = await response.blob();
-            console.log('Blob type:', blob.type);
-            console.log('Blob size:', blob.size);
+            return this.processVideoBlob(blob, video);
             
-            if (blob.size === 0) {
-                throw new Error('Downloaded file is empty');
-            }
-            
-            if (!blob.type.includes('video/')) {
-                throw new Error('Invalid content type: ' + blob.type);
-            }
-            
-            console.log('Download complete:', video.filename, 'size:', blob.size);
-            
-            const localUrl = URL.createObjectURL(blob);
-            console.log('Created local URL:', localUrl);
-            
-            // Test if the video is playable
-            const testVideo = document.createElement('video');
-            const canPlay = await new Promise((resolve) => {
-                const timeout = setTimeout(() => {
-                    testVideo.onerror = null;
-                    testVideo.onloadedmetadata = null;
-                    resolve(false);
-                }, 5000);
-                
-                testVideo.onloadedmetadata = () => {
-                    clearTimeout(timeout);
-                    resolve(true);
-                };
-                
-                testVideo.onerror = () => {
-                    clearTimeout(timeout);
-                    console.error('Test video error:', testVideo.error);
-                    resolve(false);
-                };
-                
-                testVideo.src = localUrl;
-                testVideo.load();
-            });
-            
-            if (!canPlay) {
-                URL.revokeObjectURL(localUrl);
-                throw new Error('Video file is not playable');
-            }
-            
-            this.localVideos.set(video.filename, localUrl);
-            return localUrl;
         } catch (error) {
             console.error('Error downloading video:', video.filename, error);
             return null;
         }
+    }
+    
+    async processVideoBlob(blob, video) {
+        console.log('Processing blob:', blob.type, blob.size);
+        
+        if (blob.size === 0) {
+            throw new Error('Downloaded file is empty');
+        }
+        
+        console.log('Download complete:', video.filename, 'size:', blob.size);
+        
+        const localUrl = URL.createObjectURL(blob);
+        console.log('Created local URL:', localUrl);
+        
+        // Test if the video is playable
+        const testVideo = document.createElement('video');
+        const canPlay = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                testVideo.onerror = null;
+                testVideo.onloadedmetadata = null;
+                resolve(false);
+            }, 5000);
+            
+            testVideo.onloadedmetadata = () => {
+                clearTimeout(timeout);
+                resolve(true);
+            };
+            
+            testVideo.onerror = () => {
+                clearTimeout(timeout);
+                console.error('Test video error:', testVideo.error);
+                resolve(false);
+            };
+            
+            testVideo.src = localUrl;
+            testVideo.load();
+        });
+        
+        if (!canPlay) {
+            URL.revokeObjectURL(localUrl);
+            throw new Error('Video file is not playable');
+        }
+        
+        this.localVideos.set(video.filename, localUrl);
+        return localUrl;
     }
     
     async loadVideos() {
