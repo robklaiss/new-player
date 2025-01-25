@@ -3,7 +3,7 @@ const API_CONFIG = {
     // API settings
     BASE_URL: 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
-    DEVICE_ID: 'device_20250119_06395bce', // Specific device ID
+    DEVICE_ID: 'KIOSK-VERANO-2025', // Updated device ID
     PAIRED: true,
     UPDATE_INTERVAL: 60000,
     CONTENT_CHECK_INTERVAL: 30000,
@@ -36,7 +36,7 @@ const API_CONFIG = {
         useRequestVideoFrameCallback: true
     },
     HEADERS: {
-        'X-Device-Id': 'device_20250119_06395bce',
+        'X-Device-Id': 'KIOSK-VERANO-2025', // Updated device ID
         'X-API-Key': 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
         'Content-Type': 'application/json'
     }
