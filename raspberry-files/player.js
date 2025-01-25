@@ -4,7 +4,7 @@ class VideoPlayer {
         this.status = document.getElementById('status');
         this.loader = document.getElementById('loader');
         this.playlist = [];
-        this.currentIndex = 0;
+        this.currentIndex = -1; // Start at -1 so first playNext() goes to index 0
         this.localVideos = new Map(); // Store downloaded videos
         
         if (!this.video) {
@@ -13,7 +13,7 @@ class VideoPlayer {
         }
         
         // Set up video
-        this.video.loop = false; // Don't loop individual videos
+        this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
         
@@ -31,8 +31,8 @@ class VideoPlayer {
         });
         
         this.video.addEventListener('playing', () => {
-            console.log('Video playing');
-            this.updateStatus('Video reproduciendo: ' + this.getCurrentVideoName());
+            console.log('Video playing:', this.getCurrentVideoName());
+            this.updateStatus('Reproduciendo: ' + this.getCurrentVideoName());
             this.video.classList.add('ready');
             if (this.loader) this.loader.style.display = 'none';
         });
@@ -53,26 +53,19 @@ class VideoPlayer {
             let errorMsg = 'Error desconocido';
             if (error) {
                 switch (error.code) {
-                    case MediaError.MEDIA_ERR_ABORTED:
-                        errorMsg = 'Carga abortada';
-                        break;
-                    case MediaError.MEDIA_ERR_NETWORK:
-                        errorMsg = 'Error de red';
-                        break;
-                    case MediaError.MEDIA_ERR_DECODE:
-                        errorMsg = 'Error de decodificación';
-                        break;
-                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                        errorMsg = 'Formato no soportado';
-                        break;
+                    case MediaError.MEDIA_ERR_ABORTED: errorMsg = 'Carga abortada'; break;
+                    case MediaError.MEDIA_ERR_NETWORK: errorMsg = 'Error de red'; break;
+                    case MediaError.MEDIA_ERR_DECODE: errorMsg = 'Error de decodificación'; break;
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMsg = 'Formato no soportado'; break;
                 }
             }
-            this.updateStatus('Error: ' + errorMsg);
             console.error('Video error:', error, errorMsg);
-            setTimeout(() => this.playNext(), 5000); // Try next video on error
+            this.updateStatus('Error: ' + errorMsg);
+            setTimeout(() => this.playNext(), 5000);
         });
         
         // Start loading videos
+        console.log('Starting video player...');
         this.loadVideos();
         
         // Check for new videos every minute
@@ -96,14 +89,22 @@ class VideoPlayer {
     async downloadVideo(video) {
         try {
             this.updateStatus('Descargando: ' + video.filename);
+            console.log('Downloading:', video.url);
+            
             const response = await fetch(video.url);
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
+            
             const blob = await response.blob();
+            console.log('Download complete:', video.filename, 'size:', blob.size);
+            
             const localUrl = URL.createObjectURL(blob);
             this.localVideos.set(video.filename, localUrl);
-            console.log('Downloaded:', video.filename);
+            
             return localUrl;
         } catch (error) {
-            console.error('Error downloading video:', error);
+            console.error('Error downloading video:', video.filename, error);
             return null;
         }
     }
@@ -111,10 +112,17 @@ class VideoPlayer {
     async loadVideos() {
         try {
             this.updateStatus('Buscando videos...');
-            const response = await fetch('https://vinculo.com.py/new-player/api/content.php');
-            const data = await response.json();
+            console.log('Fetching video list...');
             
-            if (data.content && data.content.videos) {
+            const response = await fetch('https://vinculo.com.py/new-player/api/content.php');
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
+            
+            const data = await response.json();
+            console.log('API response:', data);
+            
+            if (data.content && data.content.videos && data.content.videos.length > 0) {
                 // Download any new videos
                 for (const video of data.content.videos) {
                     if (!this.localVideos.has(video.filename)) {
@@ -123,13 +131,17 @@ class VideoPlayer {
                 }
                 
                 // Update playlist with local URLs
-                this.playlist = data.content.videos.map(video => ({
-                    ...video,
-                    localUrl: this.localVideos.get(video.filename)
-                })).filter(video => video.localUrl); // Only keep videos that were downloaded successfully
+                this.playlist = data.content.videos
+                    .map(video => ({
+                        ...video,
+                        localUrl: this.localVideos.get(video.filename)
+                    }))
+                    .filter(video => video.localUrl);
+                
+                console.log('Playlist updated:', this.playlist.length, 'videos');
                 
                 // Start playback if not already playing
-                if (!this.video.src) {
+                if (!this.video.src || this.video.error) {
                     this.playNext();
                 }
             } else {
@@ -137,7 +149,7 @@ class VideoPlayer {
             }
         } catch (error) {
             console.error('Error loading videos:', error);
-            this.updateStatus('Error de conexión');
+            this.updateStatus('Error de conexión: ' + error.message);
             setTimeout(() => this.loadVideos(), 5000);
         }
     }
@@ -152,7 +164,7 @@ class VideoPlayer {
         this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         const video = this.playlist[this.currentIndex];
         
-        console.log('Playing next video:', video.filename);
+        console.log('Playing next video:', video.filename, 'index:', this.currentIndex);
         this.video.src = video.localUrl;
         this.video.load();
         
@@ -169,5 +181,6 @@ class VideoPlayer {
 
 // Start player when page loads
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, starting player...');
     new VideoPlayer();
 });
