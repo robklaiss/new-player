@@ -17,7 +17,7 @@ try {
     $manifest = [
         'version' => time(),
         'content' => [
-            'video' => BASE_URL . '/videos/verano-ensalada-cesar-opt2-ok.mp4'
+            'video' => BASE_URL . '/api/videos/verano-ensalada-cesar-opt-ok.mp4'
         ]
     ];
     
