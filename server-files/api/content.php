@@ -11,7 +11,6 @@ ini_set('display_errors', 1);
 
 // Get all videos from the videos directory
 $videos_dir = __DIR__ . '/../videos/';
-$videos = glob($videos_dir . '*.mp4');
 $video_list = [];
 
 // Debug info
@@ -21,26 +20,42 @@ $debug = [
     'readable' => is_readable($videos_dir)
 ];
 
-foreach ($videos as $video) {
-    // Only add videos that actually exist and are readable
-    if (file_exists($video) && is_readable($video)) {
-        $size = filesize($video);
-        $video_list[] = [
-            'url' => 'https://vinculo.com.py/new-player/videos/' . basename($video),
-            'filename' => basename($video),
-            'modified' => filemtime($video),
-            'size' => $size,
-            'type' => 'video/mp4'
-        ];
+if (is_dir($videos_dir) && is_readable($videos_dir)) {
+    // Get all MP4 files
+    $videos = glob($videos_dir . '*.mp4');
+    
+    foreach ($videos as $video) {
+        // Only add videos that exist, are readable, and not empty
+        if (file_exists($video) && is_readable($video) && filesize($video) > 0) {
+            $size = filesize($video);
+            $filename = basename($video);
+            
+            // Verify it's a valid MP4 file by checking the first few bytes
+            $handle = fopen($video, 'rb');
+            $header = fread($handle, 8);
+            fclose($handle);
+            
+            // Check for MP4 file signature (ftyp)
+            if (strpos($header, 'ftyp') !== false) {
+                $video_list[] = [
+                    'url' => 'https://vinculo.com.py/new-player/videos/' . $filename,
+                    'filename' => $filename,
+                    'modified' => filemtime($video),
+                    'size' => $size,
+                    'type' => 'video/mp4'
+                ];
+            }
+        }
     }
+    
+    // Sort by modified time, newest first
+    usort($video_list, function($a, $b) {
+        return $b['modified'] - $a['modified'];
+    });
 }
 
 $debug['files_found'] = count($video_list);
-
-// Sort by modified time, newest first
-usort($video_list, function($a, $b) {
-    return $b['modified'] - $a['modified'];
-});
+$debug['files'] = array_map(function($v) { return $v['filename']; }, $video_list);
 
 echo json_encode([
     'version' => time(),
