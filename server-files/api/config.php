@@ -6,7 +6,7 @@ ini_set('display_errors', 1);
 // Base configuration
 define('BASE_URL', 'https://vinculo.com.py/new-player');
 define('API_KEY', 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK');  // Secure generated key
-define('VIDEOS_DIR', __DIR__ . '/videos/');
+define('VIDEOS_DIR', dirname(__DIR__) . '/videos/');  // Changed to look in parent directory
 define('LOGS_DIR', __DIR__ . '/logs/');
 define('DEVICES_FILE', __DIR__ . '/data/devices.json');
 define('ROTATION_FILE', __DIR__ . '/data/rotation.json');
@@ -54,15 +54,15 @@ function verify_api_key() {
 
 function get_device_info($device_id) {
     $devices = json_decode(file_get_contents(DEVICES_FILE), true);
-    return isset($devices['devices'][$device_id]) ? $devices['devices'][$device_id] : null;
+    return $devices['devices'][$device_id] ?? null;
 }
 
 function update_device_info($device_id, $info) {
     $devices = json_decode(file_get_contents(DEVICES_FILE), true);
-    $devices['devices'][$device_id] = array_merge(
-        isset($devices['devices'][$device_id]) ? $devices['devices'][$device_id] : [],
-        $info
-    );
+    if (!isset($devices['devices'][$device_id])) {
+        $devices['devices'][$device_id] = [];
+    }
+    $devices['devices'][$device_id] = array_merge($devices['devices'][$device_id], $info);
     file_put_contents(DEVICES_FILE, json_encode($devices, JSON_PRETTY_PRINT));
 }
 
@@ -93,15 +93,12 @@ function get_current_video() {
 }
 
 function log_event($event_type, $data) {
-    $log_file = LOGS_DIR . date('Y-m') . '.log';
     $log_entry = [
-        'timestamp' => date('Y-m-d H:i:s'),
+        'timestamp' => time(),
         'type' => $event_type,
         'data' => $data
     ];
-    file_put_contents(
-        $log_file,
-        json_encode($log_entry) . "\n",
-        FILE_APPEND
-    );
+    
+    $log_file = LOGS_DIR . date('Y-m-d') . '.log';
+    file_put_contents($log_file, json_encode($log_entry) . "\n", FILE_APPEND);
 }
