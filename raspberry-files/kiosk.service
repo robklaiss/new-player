@@ -20,4 +20,3 @@ RestartSec=5
 
 [Install]
 WantedBy=graphical.target
-Alias=display-manager.service
