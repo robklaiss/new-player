@@ -29,7 +29,7 @@ try {
     $manifest = [
         'version' => time(),
         'content' => [
-            'video' => BASE_URL . '/api/videos/' . $current_video
+            'video' => BASE_URL . '/videos/' . $current_video
         ]
     ];
     
