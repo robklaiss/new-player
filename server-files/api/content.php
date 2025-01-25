@@ -15,17 +15,22 @@ $video_list = [];
 $debug = [
     'directory' => $videos_dir,
     'exists' => is_dir($videos_dir),
-    'readable' => is_readable($videos_dir),
-    'files_found' => count($videos)
+    'readable' => is_readable($videos_dir)
 ];
 
 foreach ($videos as $video) {
-    $video_list[] = [
-        'url' => 'https://vinculo.com.py/new-player/videos/' . basename($video),
-        'filename' => basename($video),
-        'modified' => filemtime($video)
-    ];
+    // Only add videos that actually exist and are readable
+    if (file_exists($video) && is_readable($video)) {
+        $video_list[] = [
+            'url' => 'https://vinculo.com.py/new-player/videos/' . basename($video),
+            'filename' => basename($video),
+            'modified' => filemtime($video),
+            'size' => filesize($video)
+        ];
+    }
 }
+
+$debug['files_found'] = count($video_list);
 
 // Sort by modified time, newest first
 usort($video_list, function($a, $b) {
