@@ -95,35 +95,36 @@ class VideoPlayer {
             this.updateStatus('Descargando: ' + video.filename);
             console.log('Downloading:', video.url);
             
-            // Try with CORS first
-            try {
-                const response = await fetch(video.url, {
-                    mode: 'cors',
-                    headers: {
-                        'Accept': 'video/mp4,video/*'
+            // Use XMLHttpRequest for better binary data handling
+            const blob = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', video.url, true);
+                xhr.responseType = 'blob';
+                
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        console.log('XHR successful, response type:', xhr.response.type);
+                        resolve(xhr.response);
+                    } else {
+                        reject(new Error('XHR failed: ' + xhr.status));
                     }
-                });
+                };
                 
-                console.log('CORS response status:', response.status);
-                if (!response.ok) {
-                    throw new Error('HTTP error! status: ' + response.status);
-                }
+                xhr.onerror = () => {
+                    reject(new Error('Network error'));
+                };
                 
-                const blob = await response.blob();
-                if (blob.size > 0) {
-                    return this.processVideoBlob(blob, video);
-                }
-            } catch (corsError) {
-                console.log('CORS failed, trying no-cors:', corsError);
-            }
-            
-            // Fallback to no-cors if CORS fails
-            const response = await fetch(video.url, {
-                mode: 'no-cors'
+                xhr.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.round((event.loaded / event.total) * 100);
+                        this.updateStatus(`Descargando ${video.filename}: ${percent}%`);
+                        console.log('Download progress:', percent + '%');
+                    }
+                };
+                
+                xhr.send();
             });
-            console.log('No-CORS response received');
             
-            const blob = await response.blob();
             return this.processVideoBlob(blob, video);
             
         } catch (error) {
