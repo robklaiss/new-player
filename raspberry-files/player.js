@@ -4,8 +4,8 @@ class VideoPlayer {
         this.status = document.getElementById('status');
         this.loader = document.getElementById('loader');
         this.playlist = [];
-        this.currentIndex = -1; // Start at -1 so first playNext() goes to index 0
-        this.localVideos = new Map(); // Store downloaded videos
+        this.currentIndex = -1;
+        this.localVideos = new Map();
         
         if (!this.video) {
             console.error('Video element not found');
@@ -18,6 +18,17 @@ class VideoPlayer {
         this.video.playsInline = true;
         
         // Add video event listeners
+        this.setupEventListeners();
+        
+        // Start loading videos
+        console.log('Starting video player...');
+        this.loadVideos();
+        
+        // Check for new videos every minute
+        setInterval(() => this.loadVideos(), 60000);
+    }
+    
+    setupEventListeners() {
         this.video.addEventListener('loadstart', () => {
             console.log('Video loadstart');
             this.updateStatus('Iniciando carga...');
@@ -63,13 +74,6 @@ class VideoPlayer {
             this.updateStatus('Error: ' + errorMsg);
             setTimeout(() => this.playNext(), 5000);
         });
-        
-        // Start loading videos
-        console.log('Starting video player...');
-        this.loadVideos();
-        
-        // Check for new videos every minute
-        setInterval(() => this.loadVideos(), 60000);
     }
     
     getCurrentVideoName() {
@@ -97,6 +101,10 @@ class VideoPlayer {
             }
             
             const blob = await response.blob();
+            if (blob.size === 0) {
+                throw new Error('Downloaded file is empty');
+            }
+            
             console.log('Download complete:', video.filename, 'size:', blob.size);
             
             const localUrl = URL.createObjectURL(blob);
@@ -124,9 +132,13 @@ class VideoPlayer {
             
             if (data.content && data.content.videos && data.content.videos.length > 0) {
                 // Download any new videos
+                let downloadedAny = false;
                 for (const video of data.content.videos) {
                     if (!this.localVideos.has(video.filename)) {
-                        await this.downloadVideo(video);
+                        const localUrl = await this.downloadVideo(video);
+                        if (localUrl) {
+                            downloadedAny = true;
+                        }
                     }
                 }
                 
@@ -140,16 +152,20 @@ class VideoPlayer {
                 
                 console.log('Playlist updated:', this.playlist.length, 'videos');
                 
+                if (this.playlist.length === 0) {
+                    throw new Error('No se pudieron descargar los videos');
+                }
+                
                 // Start playback if not already playing
-                if (!this.video.src || this.video.error) {
+                if (!this.video.src || this.video.error || downloadedAny) {
                     this.playNext();
                 }
             } else {
-                throw new Error('No videos in response');
+                throw new Error('No hay videos disponibles');
             }
         } catch (error) {
             console.error('Error loading videos:', error);
-            this.updateStatus('Error de conexión: ' + error.message);
+            this.updateStatus('Error: ' + error.message);
             setTimeout(() => this.loadVideos(), 5000);
         }
     }
