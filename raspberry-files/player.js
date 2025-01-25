@@ -80,7 +80,7 @@ class VideoPlayer {
     
     async loadPlaylist() {
         try {
-            const response = await fetch(API_CONFIG.BASE_URL + '/api/content.php', {
+            const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?key=${API_CONFIG.API_KEY}`, {
                 headers: API_CONFIG.HEADERS,
                 timeout: 5000
             });
@@ -90,15 +90,16 @@ class VideoPlayer {
             }
             
             const data = await response.json();
+            console.log('Response received:', data);
             
-            if (data.success && data.videos && data.videos.length > 0) {
-                this.playlist = data.videos.map(video => ({
-                    url: API_CONFIG.BASE_URL + video.url,
-                    filename: video.filename
-                }));
+            if (data.content && data.content.video) {
+                this.playlist = [{
+                    url: data.content.video,
+                    filename: data.content.video.split('/').pop()
+                }];
                 console.log('Remote playlist updated:', this.playlist);
             } else {
-                console.log('Using local sample video');
+                console.log('No video in response:', data);
             }
         } catch (error) {
             console.warn('Error loading playlist:', error);
