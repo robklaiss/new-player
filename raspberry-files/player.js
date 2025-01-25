@@ -24,6 +24,9 @@ class VideoPlayer {
         // Local video directory
         this.videoDir = '/var/www/kiosk/videos/';
         
+        // Remote video URL (for downloading)
+        this.remoteVideoUrl = 'https://vinculo.com.py/new-player/videos/';
+        
         // Add video event listeners
         this.setupEventListeners();
         
@@ -114,14 +117,21 @@ class VideoPlayer {
             }
             
             // Fallback to server if local fails
-            const response = await fetch('https://vinculo.com.py/new-player/api/content.php');
+            const response = await fetch(this.remoteVideoUrl + 'videos.json');
             if (!response.ok) {
                 throw new Error('HTTP error! status: ' + response.status);
             }
             
             const data = await response.json();
-            if (data.content && data.content.videos && data.content.videos.length > 0) {
-                this.updatePlaylist(data.content.videos);
+            if (data.videos && data.videos.length > 0) {
+                // Download videos that don't exist locally
+                for (const video of data.videos) {
+                    const localPath = this.videoDir + video.filename;
+                    if (!this.fileExists(localPath)) {
+                        await this.downloadVideo(video.filename);
+                    }
+                }
+                this.updatePlaylist(data.videos);
             } else {
                 throw new Error('No hay videos disponibles');
             }
@@ -236,6 +246,20 @@ class VideoPlayer {
                 setTimeout(() => this.playNext(), 5000);
             });
         }
+    }
+    
+    fileExists(path) {
+        // This is a placeholder - in a real implementation you would
+        // need to use Node.js fs module or a similar mechanism to check file existence
+        // For now, we'll assume the file does not exist
+        return false;
+    }
+    
+    async downloadVideo(filename) {
+        // This is a placeholder - in a real implementation you would
+        // need to use Node.js fs module or a similar mechanism to download the file
+        // For now, we'll just log a message
+        console.log('Downloading video:', filename);
     }
 }
 
