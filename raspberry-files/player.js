@@ -1,11 +1,14 @@
 class VideoPlayer {
     constructor() {
         this.video = document.getElementById('video');
+        this.loader = document.getElementById('loader');
+        this.status = document.getElementById('status');
+        this.progress = document.getElementById('progress');
+        
         if (!this.video) {
-            console.error('Video element not found!');
+            this.updateStatus('Error: Video element not found!', 'error');
             return;
         }
-        console.log('Video player initialized');
         
         this.playlist = [];
         this.currentIndex = 0;
@@ -14,38 +17,74 @@ class VideoPlayer {
         this.setupEventListeners();
         
         // Load playlist
+        this.updateStatus('Conectando a Infoactive Online...');
         this.loadPlaylist();
+    }
+    
+    updateStatus(message, type = 'info') {
+        console.log(message);
+        if (this.status) {
+            this.status.textContent = message;
+            this.status.className = type;
+        }
+    }
+    
+    updateProgress(message) {
+        console.log(message);
+        if (this.progress) {
+            this.progress.textContent = message;
+        }
     }
     
     setupEventListeners() {
         if (!this.video) return;
         
         this.video.addEventListener('ended', () => {
-            console.log('Video ended, reloading playlist');
+            this.updateStatus('Video finalizado, recargando...');
             this.loadPlaylist();
         });
         
         this.video.addEventListener('error', (e) => {
+            this.updateStatus('Error reproduciendo video', 'error');
             console.error('Video error:', e);
             setTimeout(() => this.loadPlaylist(), 5000);
         });
         
         this.video.addEventListener('loadstart', () => {
-            console.log('Video load started');
+            this.updateStatus('Cargando video...');
+            this.video.classList.remove('ready');
         });
         
         this.video.addEventListener('loadeddata', () => {
-            console.log('Video data loaded');
+            this.updateStatus('Video cargado');
+            this.video.classList.add('ready');
         });
         
         this.video.addEventListener('playing', () => {
-            console.log('Video is playing');
+            this.updateStatus('Reproduciendo');
+            if (this.loader) {
+                this.loader.style.display = 'none';
+            }
+        });
+        
+        this.video.addEventListener('progress', () => {
+            if (this.video.buffered.length > 0) {
+                const percent = Math.round((this.video.buffered.end(0) / this.video.duration) * 100);
+                this.updateProgress(`Cargando: ${percent}%`);
+            }
+        });
+        
+        this.video.addEventListener('waiting', () => {
+            this.updateStatus('Buffering...');
+            if (this.loader) {
+                this.loader.style.display = 'block';
+            }
         });
     }
     
     async loadPlaylist() {
         try {
-            console.log('Loading playlist...');
+            this.updateStatus('Conectando a Infoactive Online...');
             const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?key=${API_CONFIG.API_KEY}`, {
                 headers: API_CONFIG.HEADERS,
                 timeout: 5000
@@ -63,13 +102,13 @@ class VideoPlayer {
                     url: data.content.video,
                     filename: data.content.video.split('/').pop()
                 }];
-                console.log('Playlist updated:', this.playlist);
+                this.updateStatus('Video encontrado, iniciando reproducción...');
                 this.startPlayback();
             } else {
-                console.error('No video in response:', data);
-                setTimeout(() => this.loadPlaylist(), 5000);
+                throw new Error('No video in response');
             }
         } catch (error) {
+            this.updateStatus('Error de conexión, reintentando...', 'error');
             console.error('Error loading playlist:', error);
             setTimeout(() => this.loadPlaylist(), 5000);
         }
@@ -77,12 +116,12 @@ class VideoPlayer {
     
     startPlayback() {
         if (!this.video || this.playlist.length === 0) {
-            console.error('Cannot start playback - video element or playlist missing');
+            this.updateStatus('Error: No se puede iniciar la reproducción', 'error');
             return;
         }
         
         const currentVideo = this.playlist[this.currentIndex];
-        console.log('Starting playback of:', currentVideo);
+        this.updateStatus('Iniciando reproducción...');
         
         this.video.src = currentVideo.url;
         this.video.load();
@@ -90,6 +129,7 @@ class VideoPlayer {
         const playPromise = this.video.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
+                this.updateStatus('Error iniciando reproducción', 'error');
                 console.error('Error playing video:', error);
                 setTimeout(() => this.loadPlaylist(), 5000);
             });
