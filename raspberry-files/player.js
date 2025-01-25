@@ -96,11 +96,17 @@ class VideoPlayer {
             console.log('Downloading:', video.url);
             
             const response = await fetch(video.url);
+            console.log('Response status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+            
             if (!response.ok) {
                 throw new Error('HTTP error! status: ' + response.status);
             }
             
             const blob = await response.blob();
+            console.log('Blob type:', blob.type);
+            console.log('Blob size:', blob.size);
+            
             if (blob.size === 0) {
                 throw new Error('Downloaded file is empty');
             }
@@ -108,8 +114,21 @@ class VideoPlayer {
             console.log('Download complete:', video.filename, 'size:', blob.size);
             
             const localUrl = URL.createObjectURL(blob);
-            this.localVideos.set(video.filename, localUrl);
+            console.log('Created local URL:', localUrl);
             
+            // Test if the video is playable
+            const testVideo = document.createElement('video');
+            const canPlay = await new Promise((resolve) => {
+                testVideo.onloadedmetadata = () => resolve(true);
+                testVideo.onerror = () => resolve(false);
+                testVideo.src = localUrl;
+            });
+            
+            if (!canPlay) {
+                throw new Error('Video file is not playable');
+            }
+            
+            this.localVideos.set(video.filename, localUrl);
             return localUrl;
         } catch (error) {
             console.error('Error downloading video:', video.filename, error);
