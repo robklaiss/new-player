@@ -16,6 +16,7 @@ class VideoPlayer {
         this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
+        this.video.preload = 'auto'; // Add preload attribute
         
         // Add video event listeners
         this.setupEventListeners();
@@ -245,6 +246,16 @@ class VideoPlayer {
             console.log('API response:', data);
             
             if (data.content && data.content.videos && data.content.videos.length > 0) {
+                // Clean up deleted videos
+                for (const [filename, url] of this.localVideos.entries()) {
+                    const videoExists = data.content.videos.some(v => v.filename === filename);
+                    if (!videoExists) {
+                        console.log('Removing deleted video:', filename);
+                        URL.revokeObjectURL(url);
+                        this.localVideos.delete(filename);
+                    }
+                }
+                
                 // Download any new videos
                 let downloadedAny = false;
                 for (const video of data.content.videos) {
@@ -271,7 +282,7 @@ class VideoPlayer {
                 }
                 
                 // Start playback if not already playing
-                if (!this.video.src || this.video.error || downloadedAny) {
+                if (!this.video.src || this.video.error || downloadedAny || !this.video.currentTime) {
                     this.playNext();
                 }
             } else {
@@ -294,7 +305,25 @@ class VideoPlayer {
         this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         const video = this.playlist[this.currentIndex];
         
+        if (!video || !video.localUrl) {
+            console.error('Invalid video or missing localUrl:', video);
+            setTimeout(() => this.playNext(), 1000);
+            return;
+        }
+        
         console.log('Playing next video:', video.filename, 'index:', this.currentIndex);
+        
+        // Pre-load the next video
+        const nextIndex = (this.currentIndex + 1) % this.playlist.length;
+        const nextVideo = this.playlist[nextIndex];
+        if (nextVideo && nextVideo.localUrl) {
+            const preloadVideo = document.createElement('video');
+            preloadVideo.src = nextVideo.localUrl;
+            preloadVideo.preload = 'auto';
+            preloadVideo.load();
+            setTimeout(() => preloadVideo.remove(), 5000);
+        }
+        
         this.video.src = video.localUrl;
         this.video.load();
         
