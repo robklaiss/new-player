@@ -36,6 +36,7 @@ const API_CONFIG = {
         useRequestVideoFrameCallback: true
     },
     HEADERS: {
+        'X-Device-Id': 'device_20250119_06395bce',
         'X-API-Key': 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
         'Content-Type': 'application/json'
     }
