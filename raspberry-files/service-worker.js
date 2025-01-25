@@ -1,8 +1,19 @@
 // Service Worker for Video Player
 importScripts('config.js');
 
-const CACHE_NAME = 'video-player-cache-v1';
-let currentVersion = null;
+const CACHE_NAME = 'kiosk-cache-v1';
+const VIDEO_CACHE = 'video-cache-v1';
+
+// Files to cache for the app shell
+const APP_SHELL_FILES = [
+    '/',
+    '/index.html',
+    '/player.js',
+    '/config.js',
+    '/manifest.json',
+    '/icon-192x192.png',
+    '/icon-512x512.png'
+];
 
 // Helper function to add API headers
 function getApiHeaders() {
@@ -46,10 +57,10 @@ async function fetchManifest() {
         });
         
         const manifest = await handleApiError(response);
-        currentVersion = manifest.version;
+        const currentVersion = manifest.version;
         
         // Cache the current and next videos
-        const cache = await caches.open(CACHE_NAME);
+        const cache = await caches.open(VIDEO_CACHE);
         const videosToCache = [
             manifest.content.video,
             manifest.content.nextVideo
@@ -145,68 +156,114 @@ async function updateStatus(status, currentVideo = null) {
     }
 }
 
-// Service Worker Install
+// Helper function to download and cache a video
+async function cacheVideo(videoUrl) {
+    try {
+        const cache = await caches.open(VIDEO_CACHE);
+        const response = await fetch(videoUrl);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        await cache.put(videoUrl, response);
+        console.log('Video cached successfully:', videoUrl);
+        return true;
+    } catch (error) {
+        console.error('Error caching video:', error);
+        return false;
+    }
+}
+
+// Install event - cache app shell
 self.addEventListener('install', event => {
+    console.log('Service Worker installing');
     event.waitUntil(
-        Promise.all([
-            self.skipWaiting(),
-            fetchManifest()
-        ])
-    );
-});
-
-// Service Worker Activate
-self.addEventListener('activate', event => {
-    event.waitUntil(
-        Promise.all([
-            clients.claim(),
-            // Clean up old caches
-            caches.keys().then(cacheNames => {
-                return Promise.all(
-                    cacheNames.map(cacheName => {
-                        if (cacheName !== CACHE_NAME) {
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Caching app shell');
+                return cache.addAll(APP_SHELL_FILES);
             })
-        ])
     );
 });
 
-// Enhanced fetch handler with offline support
+// Activate event - clean up old caches
+self.addEventListener('activate', event => {
+    console.log('Service Worker activating');
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME && cacheName !== VIDEO_CACHE) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
+
+// Handle fetch events
 self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(async cachedResponse => {
-                if (cachedResponse) {
-                    // Return cached response
-                    return cachedResponse;
-                }
-                
-                try {
-                    // If not in cache, try to fetch
-                    const response = await fetch(event.request);
-                    
-                    // Cache successful video responses
-                    if (response.ok && event.request.url.match(/\.(mp4|webm|ogg)$/i)) {
-                        const cache = await caches.open(CACHE_NAME);
-                        cache.put(event.request, response.clone());
+    const url = new URL(event.request.url);
+    
+    // Handle video files
+    if (url.pathname.endsWith('.mp4')) {
+        event.respondWith(
+            caches.match(event.request)
+                .then(response => {
+                    // Return cached video if available
+                    if (response) {
+                        console.log('Serving cached video:', url.pathname);
+                        return response;
                     }
                     
-                    return response;
-                } catch (error) {
-                    console.error('Fetch error:', error);
-                    await reportError('fetch_error', `${error.message} for ${event.request.url}`);
-                    throw error;
-                }
-            })
+                    // Otherwise fetch and cache
+                    console.log('Fetching video:', url.pathname);
+                    return fetch(event.request)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                            
+                            // Clone the response before caching
+                            const responseToCache = response.clone();
+                            caches.open(VIDEO_CACHE)
+                                .then(cache => {
+                                    cache.put(event.request, responseToCache);
+                                });
+                            
+                            return response;
+                        });
+                })
+                .catch(error => {
+                    console.error('Fetch failed:', error);
+                    return new Response('Video not available offline', { status: 404 });
+                })
+        );
+        return;
+    }
+    
+    // Handle other requests
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => response || fetch(event.request))
     );
 });
 
-// Handle messages from clients
+// Listen for messages from the client
 self.addEventListener('message', event => {
-    if (event.data.type === 'checkContent') {
+    if (event.data.type === 'CACHE_VIDEOS') {
+        event.waitUntil(
+            Promise.all(event.data.videos.map(video => cacheVideo(video.url)))
+                .then(() => {
+                    // Notify client that videos are cached
+                    self.clients.matchAll().then(clients => {
+                        clients.forEach(client => {
+                            client.postMessage({
+                                type: 'VIDEOS_CACHED',
+                                success: true
+                            });
+                        });
+                    });
+                })
+        );
+    } else if (event.data.type === 'checkContent') {
         event.waitUntil(fetchManifest());
     } else if (event.data.type === 'updateStatus') {
         event.waitUntil(updateStatus(event.data.status, event.data.currentVideo));
