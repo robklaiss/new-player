@@ -204,6 +204,23 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
     
+    // Handle API requests
+    if (url.pathname.endsWith('content.php')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response;
+                })
+                .catch(error => {
+                    console.error('API fetch failed:', error);
+                    // Return cached response if available
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+    
     // Handle video files
     if (url.pathname.endsWith('.mp4')) {
         // If it's a file:// URL, let the browser handle it directly
