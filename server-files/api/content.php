@@ -13,11 +13,13 @@ try {
         throw new Exception('Device ID is required');
     }
     
-    // Get current video
-    $current_video = get_current_video();
-    if (!$current_video) {
-        throw new Exception('No videos available');
-    }
+    // Create content manifest with the specific video we want
+    $manifest = [
+        'version' => time(),
+        'content' => [
+            'video' => BASE_URL . '/videos/verano-ensalada-cesar-opt2-ok.mp4'
+        ]
+    ];
     
     // Update device info
     update_device_info($device_id, [
@@ -25,18 +27,10 @@ try {
         'ip' => $_SERVER['REMOTE_ADDR']
     ]);
     
-    // Create content manifest
-    $manifest = [
-        'version' => time(),
-        'content' => [
-            'video' => BASE_URL . '/videos/' . $current_video
-        ]
-    ];
-    
     // Log the content request
     log_event('content_request', [
         'device_id' => $device_id,
-        'video' => $current_video
+        'video' => 'verano-ensalada-cesar-opt2-ok.mp4'
     ]);
     
     echo json_encode($manifest);
