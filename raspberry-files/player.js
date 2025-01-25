@@ -61,28 +61,36 @@ class VideoPlayer {
                 return;
             }
             
-            // Fallback to server
-            const response = await fetch(this.remoteVideoUrl + 'videos.json');
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
-            }
-            
-            const data = await response.json();
-            if (data.videos && data.videos.length > 0) {
-                // Tell service worker to cache videos
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'CACHE_VIDEOS',
-                        videos: data.videos.map(video => ({
-                            url: this.remoteVideoUrl + video.filename,
-                            filename: video.filename
-                        }))
-                    });
+            // Try to fetch from remote
+            try {
+                const response = await fetch(this.remoteVideoUrl + 'videos.json');
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
                 }
                 
-                this.updatePlaylist(data.videos);
-            } else {
-                throw new Error('No hay videos disponibles');
+                const data = await response.json();
+                if (data.videos && data.videos.length > 0) {
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({
+                            type: 'CACHE_VIDEOS',
+                            videos: data.videos.map(video => ({
+                                url: this.remoteVideoUrl + video.filename,
+                                filename: video.filename
+                            }))
+                        });
+                    }
+                    this.updatePlaylist(data.videos);
+                }
+            } catch (error) {
+                console.warn('Failed to fetch remote videos:', error);
+                // If remote fetch fails, try to use local files directly
+                const filename = 'verano-pile-opt-ok.mp4';
+                const localPath = this.videoDir + filename;
+                this.updatePlaylist([{
+                    filename: filename,
+                    url: 'file://' + localPath,
+                    type: 'video/mp4'
+                }]);
             }
         } catch (error) {
             console.error('Error loading videos:', error);
