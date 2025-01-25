@@ -12,8 +12,8 @@ class VideoPlayer {
         // Set up event listeners
         this.setupEventListeners();
         
-        // Start the player
-        this.init();
+        // Load playlist
+        this.loadPlaylist();
     }
     
     setupEventListeners() {
@@ -62,22 +62,6 @@ class VideoPlayer {
         }
     }
     
-    async init() {
-        // Start with local sample video
-        this.playlist = [{
-            url: 'sample.mp4',
-            filename: 'sample.mp4'
-        }];
-        
-        this.startPlayback();
-        
-        // Try to load remote playlist after starting local playback
-        await this.loadPlaylist();
-        
-        // Set up periodic playlist refresh
-        setInterval(() => this.loadPlaylist(), API_CONFIG.CONTENT_CHECK_INTERVAL);
-    }
-    
     async loadPlaylist() {
         try {
             const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?key=${API_CONFIG.API_KEY}`, {
@@ -98,6 +82,7 @@ class VideoPlayer {
                     filename: data.content.video.split('/').pop()
                 }];
                 console.log('Remote playlist updated:', this.playlist);
+                this.startPlayback();
             } else {
                 console.log('No video in response:', data);
             }
