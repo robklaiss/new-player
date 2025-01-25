@@ -25,7 +25,10 @@ class VideoPlayer {
         this.videoDir = '/var/www/kiosk/videos/';
         
         // Remote video URL (for downloading)
-        this.remoteVideoUrl = 'https://vinculo.com.py/new-player/videos/';
+        this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
+        
+        // Hide loader initially
+        if (this.loader) this.loader.style.display = 'none';
         
         // Set up service worker message handling
         if ('serviceWorker' in navigator) {
@@ -47,6 +50,7 @@ class VideoPlayer {
         if (event.data.type === 'VIDEOS_CACHED') {
             console.log('Videos cached successfully');
             this.updateStatus('Videos guardados para reproducción sin conexión');
+            if (this.loader) this.loader.style.display = 'none';
         }
     }
     
@@ -61,25 +65,36 @@ class VideoPlayer {
                 return;
             }
             
-            // Try to fetch from remote
+            // Try to fetch from remote API
             try {
-                const response = await fetch(this.remoteVideoUrl + 'videos.json');
+                const response = await fetch(this.remoteVideoUrl, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
                 if (!response.ok) {
                     throw new Error('HTTP error! status: ' + response.status);
                 }
                 
                 const data = await response.json();
-                if (data.videos && data.videos.length > 0) {
+                if (data.content && data.content.videos && data.content.videos.length > 0) {
+                    const videos = Array.isArray(data.content.videos) ? data.content.videos : [data.content.videos];
+                    
+                    // Tell service worker to cache videos
                     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                         navigator.serviceWorker.controller.postMessage({
                             type: 'CACHE_VIDEOS',
-                            videos: data.videos.map(video => ({
-                                url: this.remoteVideoUrl + video.filename,
+                            videos: videos.map(video => ({
+                                url: video.url || (this.remoteVideoUrl + video.filename),
                                 filename: video.filename
                             }))
                         });
                     }
-                    this.updatePlaylist(data.videos);
+                    
+                    this.updatePlaylist(videos);
+                } else {
+                    throw new Error('No videos available from API');
                 }
             } catch (error) {
                 console.warn('Failed to fetch remote videos:', error);
@@ -95,6 +110,7 @@ class VideoPlayer {
         } catch (error) {
             console.error('Error loading videos:', error);
             this.updateStatus('Error: ' + error.message);
+            if (this.loader) this.loader.style.display = 'none';
             setTimeout(() => this.loadVideos(), 5000);
         }
     }
@@ -196,31 +212,32 @@ class VideoPlayer {
         this.video.addEventListener('loadstart', () => {
             console.log('Video loadstart');
             this.updateStatus('Iniciando carga...');
+            if (this.loader) this.loader.style.display = 'block';
             this.video.classList.remove('ready');
         });
         
-        this.video.addEventListener('loadeddata', () => {
-            console.log('Video loadeddata');
-            this.updateStatus('Video listo');
+        this.video.addEventListener('canplay', () => {
+            console.log('Video can play');
+            if (this.loader) this.loader.style.display = 'none';
             this.video.classList.add('ready');
         });
         
         this.video.addEventListener('playing', () => {
             console.log('Video playing:', this.getCurrentVideoName());
             this.updateStatus('Reproduciendo: ' + this.getCurrentVideoName());
-            this.video.classList.add('ready');
             if (this.loader) this.loader.style.display = 'none';
-        });
-        
-        this.video.addEventListener('ended', () => {
-            console.log('Video ended, playing next');
-            this.playNext();
+            this.video.classList.add('ready');
         });
         
         this.video.addEventListener('waiting', () => {
             console.log('Video waiting');
             this.updateStatus('Cargando video...');
             if (this.loader) this.loader.style.display = 'block';
+        });
+        
+        this.video.addEventListener('ended', () => {
+            console.log('Video ended, playing next');
+            this.playNext();
         });
         
         this.video.addEventListener('error', (e) => {
@@ -236,6 +253,7 @@ class VideoPlayer {
             }
             console.error('Video error:', error, errorMsg);
             this.updateStatus('Error: ' + errorMsg);
+            if (this.loader) this.loader.style.display = 'none';
             setTimeout(() => this.playNext(), 5000);
         });
     }
