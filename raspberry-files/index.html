@@ -2,6 +2,10 @@
 <html>
 <head>
     <title>Kiosk Video Player</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <style>
         body {
             margin: 0;
@@ -79,11 +83,25 @@
     <video id="video" autoplay playsinline></video>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="status">Conectando a Infoactive Online...</div>
+        <div id="status">Cargando videos...</div>
         <div id="progress"></div>
     </div>
     <div id="debugInfo"></div>
     <div id="deviceId"></div>
+    <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.error('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+    </script>
     <script src="config.js"></script>
     <script src="player.js"></script>
 </body>
