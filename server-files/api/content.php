@@ -1,41 +1,31 @@
 <?php
-require_once 'config.php';
-
-// Allow from any origin
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: X-Device-Id, X-API-Key');
-
-// Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 header('Content-Type: application/json');
 
-try {
-    verify_api_key();
-    
-    // Get device info from request
-    $headers = getallheaders();
-    $device_id = isset($headers['X-Device-Id']) ? $headers['X-Device-Id'] : '';
-    
-    if (empty($device_id)) {
-        throw new Exception('Device ID is required');
-    }
-    
-    // Create content manifest with the specific video we want
-    $manifest = [
-        'version' => time(),
-        'content' => [
-            'video' => BASE_URL . '/api/videos/verano-ensalada-cesar-opt-ok.mp4'
-        ]
-    ];
-    
-    echo json_encode($manifest);
-    
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+// Get the latest video from the videos directory
+$videos_dir = __DIR__ . '/../videos/';
+$videos = glob($videos_dir . '*.mp4');
+
+if (empty($videos)) {
+    echo json_encode([
+        'error' => 'No videos available'
+    ]);
+    exit;
 }
+
+// Get the most recently modified video
+$latest_video = array_reduce($videos, function($latest, $video) {
+    if (!$latest || filemtime($video) > filemtime($latest)) {
+        return $video;
+    }
+    return $latest;
+});
+
+$video_url = 'https://vinculo.com.py/new-player/videos/' . basename($latest_video);
+
+echo json_encode([
+    'version' => time(),
+    'content' => [
+        'video' => $video_url
+    ]
+]);
