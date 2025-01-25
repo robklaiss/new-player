@@ -16,12 +16,51 @@ class VideoPlayer {
         // Set up event listeners
         this.setupEventListeners();
         
-        // Show device ID
-        this.updateProgress(`Device ID: ${API_CONFIG.DEVICE_ID}`);
-        
-        // Load playlist
-        this.updateStatus('Conectando a Infoactive Online...');
-        this.loadPlaylist();
+        // Register device first
+        this.updateStatus('Registrando dispositivo...');
+        this.registerDevice().then(() => {
+            // Show device ID
+            this.updateProgress(`Device ID: ${API_CONFIG.DEVICE_ID}`);
+            
+            // Load playlist
+            this.updateStatus('Conectando a Infoactive Online...');
+            this.loadPlaylist();
+            
+            // Start heartbeat
+            this.startHeartbeat();
+        }).catch(error => {
+            this.updateStatus('Error registrando dispositivo: ' + error.message, 'error');
+        });
+    }
+    
+    async registerDevice() {
+        try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DEVICES}`, {
+                method: 'POST',
+                headers: API_CONFIG.HEADERS
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('Device registration:', data);
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+        } catch (error) {
+            console.error('Error registering device:', error);
+            throw error;
+        }
+    }
+    
+    startHeartbeat() {
+        // Send heartbeat every minute
+        setInterval(() => {
+            this.registerDevice().catch(console.error);
+        }, API_CONFIG.UPDATE_INTERVAL);
     }
     
     updateStatus(message, type = 'info') {
