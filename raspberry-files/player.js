@@ -95,7 +95,13 @@ class VideoPlayer {
             this.updateStatus('Descargando: ' + video.filename);
             console.log('Downloading:', video.url);
             
-            const response = await fetch(video.url);
+            const response = await fetch(video.url, {
+                mode: 'cors',
+                headers: {
+                    'Accept': 'video/mp4,video/*'
+                }
+            });
+            
             console.log('Response status:', response.status);
             console.log('Response headers:', [...response.headers.entries()]);
             
@@ -111,6 +117,10 @@ class VideoPlayer {
                 throw new Error('Downloaded file is empty');
             }
             
+            if (!blob.type.includes('video/')) {
+                throw new Error('Invalid content type: ' + blob.type);
+            }
+            
             console.log('Download complete:', video.filename, 'size:', blob.size);
             
             const localUrl = URL.createObjectURL(blob);
@@ -119,12 +129,29 @@ class VideoPlayer {
             // Test if the video is playable
             const testVideo = document.createElement('video');
             const canPlay = await new Promise((resolve) => {
-                testVideo.onloadedmetadata = () => resolve(true);
-                testVideo.onerror = () => resolve(false);
+                const timeout = setTimeout(() => {
+                    testVideo.onerror = null;
+                    testVideo.onloadedmetadata = null;
+                    resolve(false);
+                }, 5000);
+                
+                testVideo.onloadedmetadata = () => {
+                    clearTimeout(timeout);
+                    resolve(true);
+                };
+                
+                testVideo.onerror = () => {
+                    clearTimeout(timeout);
+                    console.error('Test video error:', testVideo.error);
+                    resolve(false);
+                };
+                
                 testVideo.src = localUrl;
+                testVideo.load();
             });
             
             if (!canPlay) {
+                URL.revokeObjectURL(localUrl);
                 throw new Error('Video file is not playable');
             }
             
