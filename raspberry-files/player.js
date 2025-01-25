@@ -12,11 +12,17 @@ class VideoPlayer {
             return;
         }
         
-        // Set up video
+        // Set up video with optimized settings
         this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
-        this.video.preload = 'auto'; // Add preload attribute
+        this.video.preload = 'auto';
+        
+        // Add hardware acceleration hint
+        this.video.style.transform = 'translateZ(0)';
+        
+        // Local video directory
+        this.videoDir = '/var/www/kiosk/videos/';
         
         // Add video event listeners
         this.setupEventListeners();
@@ -91,200 +97,31 @@ class VideoPlayer {
         }
     }
     
-    async downloadVideo(video) {
-        try {
-            this.updateStatus('Descargando: ' + video.filename);
-            console.log('Attempting download:', video.url);
-            
-            // Use XMLHttpRequest for better binary data handling
-            const blob = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                console.log('Creating XHR request for:', video.filename);
-                
-                xhr.open('GET', video.url, true);
-                xhr.responseType = 'blob';
-                
-                // Log request headers
-                xhr.onreadystatechange = () => {
-                    console.log('XHR state change:', {
-                        state: xhr.readyState,
-                        status: xhr.status,
-                        statusText: xhr.statusText
-                    });
-                    
-                    if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
-                        console.log('Response headers received:', xhr.getAllResponseHeaders());
-                    }
-                };
-                
-                xhr.onload = () => {
-                    console.log('XHR load complete:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseType: xhr.responseType,
-                        responseSize: xhr.response ? xhr.response.size : 0
-                    });
-                    
-                    if (xhr.status === 200) {
-                        if (xhr.response && xhr.response.size > 0) {
-                            console.log('Download successful:', {
-                                type: xhr.response.type,
-                                size: xhr.response.size
-                            });
-                            resolve(xhr.response);
-                        } else {
-                            reject(new Error('Response empty or invalid'));
-                        }
-                    } else {
-                        reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
-                    }
-                };
-                
-                xhr.onerror = (e) => {
-                    console.error('XHR error:', e);
-                    reject(new Error('Network error: ' + e.type));
-                };
-                
-                xhr.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percent = Math.round((event.loaded / event.total) * 100);
-                        console.log('Download progress:', {
-                            filename: video.filename,
-                            loaded: event.loaded,
-                            total: event.total,
-                            percent: percent
-                        });
-                        this.updateStatus(`Descargando ${video.filename}: ${percent}%`);
-                    }
-                };
-                
-                console.log('Sending XHR request for:', video.filename);
-                xhr.send();
-            });
-            
-            console.log('Blob received, processing:', {
-                filename: video.filename,
-                type: blob.type,
-                size: blob.size
-            });
-            
-            return this.processVideoBlob(blob, video);
-            
-        } catch (error) {
-            console.error('Download failed:', video.filename, error);
-            return null;
-        }
-    }
-    
-    async processVideoBlob(blob, video) {
-        console.log('Processing video blob:', {
-            filename: video.filename,
-            type: blob.type,
-            size: blob.size
-        });
-        
-        if (blob.size === 0) {
-            throw new Error('Downloaded file is empty');
-        }
-        
-        const localUrl = URL.createObjectURL(blob);
-        console.log('Created local URL:', localUrl);
-        
-        // Test if the video is playable
-        const testVideo = document.createElement('video');
-        console.log('Testing video playability:', video.filename);
-        
-        const canPlay = await new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-                console.log('Video test timed out:', video.filename);
-                testVideo.onerror = null;
-                testVideo.onloadedmetadata = null;
-                resolve(false);
-            }, 5000);
-            
-            testVideo.onloadedmetadata = () => {
-                console.log('Video metadata loaded:', video.filename);
-                clearTimeout(timeout);
-                resolve(true);
-            };
-            
-            testVideo.onerror = () => {
-                console.error('Video test error:', {
-                    filename: video.filename,
-                    error: testVideo.error
-                });
-                clearTimeout(timeout);
-                resolve(false);
-            };
-            
-            testVideo.src = localUrl;
-            testVideo.load();
-        });
-        
-        if (!canPlay) {
-            console.error('Video not playable:', video.filename);
-            URL.revokeObjectURL(localUrl);
-            throw new Error('Video file is not playable');
-        }
-        
-        console.log('Video processed successfully:', video.filename);
-        this.localVideos.set(video.filename, localUrl);
-        return localUrl;
-    }
-    
     async loadVideos() {
         try {
             this.updateStatus('Buscando videos...');
-            console.log('Fetching video list...');
+            console.log('Looking for local videos...');
             
+            // Try to load local video list first
+            try {
+                const localVideoList = await this.getLocalVideos();
+                if (localVideoList && localVideoList.length > 0) {
+                    this.updatePlaylist(localVideoList);
+                    return;
+                }
+            } catch (error) {
+                console.warn('Error loading local videos:', error);
+            }
+            
+            // Fallback to server if local fails
             const response = await fetch('https://vinculo.com.py/new-player/api/content.php');
             if (!response.ok) {
                 throw new Error('HTTP error! status: ' + response.status);
             }
             
             const data = await response.json();
-            console.log('API response:', data);
-            
             if (data.content && data.content.videos && data.content.videos.length > 0) {
-                // Clean up deleted videos
-                for (const [filename, url] of this.localVideos.entries()) {
-                    const videoExists = data.content.videos.some(v => v.filename === filename);
-                    if (!videoExists) {
-                        console.log('Removing deleted video:', filename);
-                        URL.revokeObjectURL(url);
-                        this.localVideos.delete(filename);
-                    }
-                }
-                
-                // Download any new videos
-                let downloadedAny = false;
-                for (const video of data.content.videos) {
-                    if (!this.localVideos.has(video.filename)) {
-                        const localUrl = await this.downloadVideo(video);
-                        if (localUrl) {
-                            downloadedAny = true;
-                        }
-                    }
-                }
-                
-                // Update playlist with local URLs
-                this.playlist = data.content.videos
-                    .map(video => ({
-                        ...video,
-                        localUrl: this.localVideos.get(video.filename)
-                    }))
-                    .filter(video => video.localUrl);
-                
-                console.log('Playlist updated:', this.playlist.length, 'videos');
-                
-                if (this.playlist.length === 0) {
-                    throw new Error('No se pudieron descargar los videos');
-                }
-                
-                // Start playback if not already playing
-                if (!this.video.src || this.video.error || downloadedAny || !this.video.currentTime) {
-                    this.playNext();
-                }
+                this.updatePlaylist(data.content.videos);
             } else {
                 throw new Error('No hay videos disponibles');
             }
@@ -292,6 +129,61 @@ class VideoPlayer {
             console.error('Error loading videos:', error);
             this.updateStatus('Error: ' + error.message);
             setTimeout(() => this.loadVideos(), 5000);
+        }
+    }
+    
+    async getLocalVideos() {
+        return new Promise((resolve) => {
+            const videos = [];
+            // Use local video directory
+            const videoFiles = this.getDirectoryFiles(this.videoDir, '.mp4');
+            
+            for (const filename of videoFiles) {
+                const filepath = this.videoDir + filename;
+                videos.push({
+                    filename: filename,
+                    localUrl: 'file://' + filepath,
+                    type: 'video/mp4'
+                });
+            }
+            
+            resolve(videos);
+        });
+    }
+    
+    getDirectoryFiles(directory, extension) {
+        // This is a placeholder - in a real implementation you would
+        // need to use Node.js fs module or a similar mechanism to read directory
+        // For now, we'll return an empty array and rely on the server list
+        return [];
+    }
+    
+    updatePlaylist(videos) {
+        // Clean up old videos
+        for (const [filename, url] of this.localVideos.entries()) {
+            const videoExists = videos.some(v => v.filename === filename);
+            if (!videoExists) {
+                console.log('Removing deleted video:', filename);
+                URL.revokeObjectURL(url);
+                this.localVideos.delete(filename);
+            }
+        }
+        
+        // Update playlist with local paths
+        this.playlist = videos.map(video => ({
+            ...video,
+            localUrl: 'file://' + this.videoDir + video.filename
+        }));
+        
+        console.log('Playlist updated:', this.playlist.length, 'videos');
+        
+        if (this.playlist.length === 0) {
+            throw new Error('No se pudieron encontrar videos');
+        }
+        
+        // Start playback if needed
+        if (!this.video.src || this.video.error || !this.video.currentTime) {
+            this.playNext();
         }
     }
     
@@ -313,17 +205,26 @@ class VideoPlayer {
         
         console.log('Playing next video:', video.filename, 'index:', this.currentIndex);
         
-        // Pre-load the next video
+        // Pre-load the next video aggressively
         const nextIndex = (this.currentIndex + 1) % this.playlist.length;
         const nextVideo = this.playlist[nextIndex];
         if (nextVideo && nextVideo.localUrl) {
             const preloadVideo = document.createElement('video');
-            preloadVideo.src = nextVideo.localUrl;
             preloadVideo.preload = 'auto';
+            preloadVideo.src = nextVideo.localUrl;
+            
+            // Force load metadata
+            preloadVideo.addEventListener('loadedmetadata', () => {
+                console.log('Preloaded next video:', nextVideo.filename);
+            });
+            
             preloadVideo.load();
-            setTimeout(() => preloadVideo.remove(), 5000);
+            
+            // Keep preloading for a longer time
+            setTimeout(() => preloadVideo.remove(), 10000);
         }
         
+        // Set current video source and force load
         this.video.src = video.localUrl;
         this.video.load();
         
