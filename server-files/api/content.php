@@ -1,5 +1,8 @@
 <?php
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Range');
+header('Access-Control-Expose-Headers: Content-Length, Content-Range, Content-Type');
 header('Content-Type: application/json');
 
 // Enable error reporting for debugging
@@ -21,11 +24,13 @@ $debug = [
 foreach ($videos as $video) {
     // Only add videos that actually exist and are readable
     if (file_exists($video) && is_readable($video)) {
+        $size = filesize($video);
         $video_list[] = [
             'url' => 'https://vinculo.com.py/new-player/videos/' . basename($video),
             'filename' => basename($video),
             'modified' => filemtime($video),
-            'size' => filesize($video)
+            'size' => $size,
+            'type' => 'video/mp4'
         ];
     }
 }
