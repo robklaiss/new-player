@@ -3,6 +3,9 @@ class VideoPlayer {
         this.video = document.getElementById('video');
         this.status = document.getElementById('status');
         this.loader = document.getElementById('loader');
+        this.playlist = [];
+        this.currentIndex = 0;
+        this.localVideos = new Map(); // Store downloaded videos
         
         if (!this.video) {
             console.error('Video element not found');
@@ -10,7 +13,7 @@ class VideoPlayer {
         }
         
         // Set up video
-        this.video.loop = true;
+        this.video.loop = false; // Don't loop individual videos
         this.video.muted = true;
         this.video.playsInline = true;
         
@@ -29,9 +32,14 @@ class VideoPlayer {
         
         this.video.addEventListener('playing', () => {
             console.log('Video playing');
-            this.updateStatus('Video reproduciendo');
+            this.updateStatus('Video reproduciendo: ' + this.getCurrentVideoName());
             this.video.classList.add('ready');
             if (this.loader) this.loader.style.display = 'none';
+        });
+        
+        this.video.addEventListener('ended', () => {
+            console.log('Video ended, playing next');
+            this.playNext();
         });
         
         this.video.addEventListener('waiting', () => {
@@ -61,13 +69,21 @@ class VideoPlayer {
             }
             this.updateStatus('Error: ' + errorMsg);
             console.error('Video error:', error, errorMsg);
+            setTimeout(() => this.playNext(), 5000); // Try next video on error
         });
         
-        // Load and play video
-        this.loadVideo();
+        // Start loading videos
+        this.loadVideos();
         
-        // Check for new video every minute
-        setInterval(() => this.loadVideo(), 60000);
+        // Check for new videos every minute
+        setInterval(() => this.loadVideos(), 60000);
+    }
+    
+    getCurrentVideoName() {
+        if (this.playlist[this.currentIndex]) {
+            return this.playlist[this.currentIndex].filename;
+        }
+        return 'unknown';
     }
     
     updateStatus(message) {
@@ -77,35 +93,76 @@ class VideoPlayer {
         }
     }
     
-    async loadVideo() {
+    async downloadVideo(video) {
         try {
-            this.updateStatus('Conectando a Infoactive Online...');
+            this.updateStatus('Descargando: ' + video.filename);
+            const response = await fetch(video.url);
+            const blob = await response.blob();
+            const localUrl = URL.createObjectURL(blob);
+            this.localVideos.set(video.filename, localUrl);
+            console.log('Downloaded:', video.filename);
+            return localUrl;
+        } catch (error) {
+            console.error('Error downloading video:', error);
+            return null;
+        }
+    }
+    
+    async loadVideos() {
+        try {
+            this.updateStatus('Buscando videos...');
             const response = await fetch('https://vinculo.com.py/new-player/api/content.php');
             const data = await response.json();
             
-            if (data.content && data.content.video) {
-                if (this.video.src !== data.content.video) {
-                    console.log('Loading new video:', data.content.video);
-                    this.video.src = data.content.video;
-                    this.video.load();
-                    const playPromise = this.video.play();
-                    if (playPromise) {
-                        playPromise.catch(error => {
-                            console.error('Error playing video:', error);
-                            this.updateStatus('Error al reproducir video');
-                            // Retry after 5 seconds
-                            setTimeout(() => this.loadVideo(), 5000);
-                        });
+            if (data.content && data.content.videos) {
+                // Download any new videos
+                for (const video of data.content.videos) {
+                    if (!this.localVideos.has(video.filename)) {
+                        await this.downloadVideo(video);
                     }
                 }
+                
+                // Update playlist with local URLs
+                this.playlist = data.content.videos.map(video => ({
+                    ...video,
+                    localUrl: this.localVideos.get(video.filename)
+                })).filter(video => video.localUrl); // Only keep videos that were downloaded successfully
+                
+                // Start playback if not already playing
+                if (!this.video.src) {
+                    this.playNext();
+                }
             } else {
-                throw new Error('No video URL in response');
+                throw new Error('No videos in response');
             }
         } catch (error) {
-            console.error('Error loading video:', error);
+            console.error('Error loading videos:', error);
             this.updateStatus('Error de conexión');
-            // Retry after 5 seconds on error
-            setTimeout(() => this.loadVideo(), 5000);
+            setTimeout(() => this.loadVideos(), 5000);
+        }
+    }
+    
+    playNext() {
+        if (this.playlist.length === 0) {
+            this.updateStatus('No hay videos disponibles');
+            return;
+        }
+        
+        // Move to next video, loop back to start if at end
+        this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
+        const video = this.playlist[this.currentIndex];
+        
+        console.log('Playing next video:', video.filename);
+        this.video.src = video.localUrl;
+        this.video.load();
+        
+        const playPromise = this.video.play();
+        if (playPromise) {
+            playPromise.catch(error => {
+                console.error('Error playing video:', error);
+                this.updateStatus('Error al reproducir video');
+                setTimeout(() => this.playNext(), 5000);
+            });
         }
     }
 }
