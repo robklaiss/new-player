@@ -13,15 +13,9 @@ try {
         throw new Exception('Device ID is required');
     }
     
-    // Create content manifest with the specific video we want
-    $manifest = [
-        'version' => time(),
-        'content' => [
-            'video' => BASE_URL . '/videos/verano-ensalada-cesar-opt2-ok.mp4'
-        ]
-    ];
+    $video_url = BASE_URL . '/videos/verano-ensalada-cesar-opt2-ok.mp4';
     
-    echo json_encode($manifest);
+    echo json_encode($video_url);
     
 } catch (Exception $e) {
     http_response_code(500);
