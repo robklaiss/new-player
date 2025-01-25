@@ -1,7 +1,8 @@
 [Unit]
 Description=Chromium Kiosk
 Wants=graphical.target
-After=graphical.target
+After=graphical.target network.target
+RequiresMountsFor=/home
 
 [Service]
 Type=simple
@@ -19,3 +20,4 @@ RestartSec=5
 
 [Install]
 WantedBy=graphical.target
+Alias=display-manager.service
