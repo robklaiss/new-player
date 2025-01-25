@@ -16,13 +16,16 @@ class VideoPlayer {
         // Set up event listeners
         this.setupEventListeners();
         
+        // Show device ID
+        this.updateProgress(`Device ID: ${API_CONFIG.DEVICE_ID}`);
+        
         // Load playlist
         this.updateStatus('Conectando a Infoactive Online...');
         this.loadPlaylist();
     }
     
     updateStatus(message, type = 'info') {
-        console.log(message);
+        console.log(`Status: ${message}`);
         if (this.status) {
             this.status.textContent = message;
             this.status.className = type;
@@ -30,7 +33,7 @@ class VideoPlayer {
     }
     
     updateProgress(message) {
-        console.log(message);
+        console.log(`Progress: ${message}`);
         if (this.progress) {
             this.progress.textContent = message;
         }
@@ -45,8 +48,26 @@ class VideoPlayer {
         });
         
         this.video.addEventListener('error', (e) => {
-            this.updateStatus('Error reproduciendo video', 'error');
-            console.error('Video error:', e);
+            const error = e.target.error;
+            let errorMessage = 'Error reproduciendo video';
+            if (error) {
+                switch (error.code) {
+                    case MediaError.MEDIA_ERR_ABORTED:
+                        errorMessage = 'La reproducción fue abortada';
+                        break;
+                    case MediaError.MEDIA_ERR_NETWORK:
+                        errorMessage = 'Error de red al cargar el video';
+                        break;
+                    case MediaError.MEDIA_ERR_DECODE:
+                        errorMessage = 'Error al decodificar el video';
+                        break;
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                        errorMessage = 'Formato de video no soportado';
+                        break;
+                }
+            }
+            this.updateStatus(errorMessage, 'error');
+            console.error('Video error:', error);
             setTimeout(() => this.loadPlaylist(), 5000);
         });
         
@@ -85,6 +106,9 @@ class VideoPlayer {
     async loadPlaylist() {
         try {
             this.updateStatus('Conectando a Infoactive Online...');
+            console.log('Fetching from:', `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}`);
+            console.log('Headers:', API_CONFIG.HEADERS);
+            
             const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CONTENT}?key=${API_CONFIG.API_KEY}`, {
                 headers: API_CONFIG.HEADERS,
                 timeout: 5000
@@ -103,12 +127,14 @@ class VideoPlayer {
                     filename: data.content.video.split('/').pop()
                 }];
                 this.updateStatus('Video encontrado, iniciando reproducción...');
+                console.log('Video URL:', data.content.video);
                 this.startPlayback();
             } else {
                 throw new Error('No video in response');
             }
         } catch (error) {
-            this.updateStatus('Error de conexión, reintentando...', 'error');
+            const errorMessage = `Error de conexión: ${error.message}`;
+            this.updateStatus(errorMessage, 'error');
             console.error('Error loading playlist:', error);
             setTimeout(() => this.loadPlaylist(), 5000);
         }
@@ -122,6 +148,7 @@ class VideoPlayer {
         
         const currentVideo = this.playlist[this.currentIndex];
         this.updateStatus('Iniciando reproducción...');
+        console.log('Starting playback of:', currentVideo.url);
         
         this.video.src = currentVideo.url;
         this.video.load();
@@ -129,7 +156,8 @@ class VideoPlayer {
         const playPromise = this.video.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                this.updateStatus('Error iniciando reproducción', 'error');
+                const errorMessage = `Error iniciando reproducción: ${error.message}`;
+                this.updateStatus(errorMessage, 'error');
                 console.error('Error playing video:', error);
                 setTimeout(() => this.loadPlaylist(), 5000);
             });
@@ -140,5 +168,6 @@ class VideoPlayer {
 // Initialize player when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing player');
+    console.log('API Config:', API_CONFIG);
     window.player = new VideoPlayer();
 });
