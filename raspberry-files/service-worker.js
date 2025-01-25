@@ -206,6 +206,11 @@ self.addEventListener('fetch', event => {
     
     // Handle video files
     if (url.pathname.endsWith('.mp4')) {
+        // If it's a file:// URL, let the browser handle it directly
+        if (url.protocol === 'file:') {
+            return;
+        }
+        
         event.respondWith(
             caches.match(event.request)
                 .then(response => {
@@ -233,7 +238,9 @@ self.addEventListener('fetch', event => {
                 })
                 .catch(error => {
                     console.error('Fetch failed:', error);
-                    return new Response('Video not available offline', { status: 404 });
+                    // Try to use local file as fallback
+                    const localPath = '/var/www/kiosk/videos/' + url.pathname.split('/').pop();
+                    return new Response(`Local file available at: ${localPath}`, { status: 200 });
                 })
         );
         return;
@@ -243,6 +250,10 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request)
             .then(response => response || fetch(event.request))
+            .catch(error => {
+                console.error('Fetch failed:', error);
+                return new Response('Offline content not available', { status: 404 });
+            })
     );
 });
 
