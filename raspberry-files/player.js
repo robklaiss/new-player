@@ -93,75 +93,126 @@ class VideoPlayer {
     async downloadVideo(video) {
         try {
             this.updateStatus('Descargando: ' + video.filename);
-            console.log('Downloading:', video.url);
+            console.log('Attempting download:', video.url);
             
             // Use XMLHttpRequest for better binary data handling
             const blob = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
+                console.log('Creating XHR request for:', video.filename);
+                
                 xhr.open('GET', video.url, true);
                 xhr.responseType = 'blob';
                 
-                xhr.onload = () => {
-                    if (xhr.status === 200) {
-                        console.log('XHR successful, response type:', xhr.response.type);
-                        resolve(xhr.response);
-                    } else {
-                        reject(new Error('XHR failed: ' + xhr.status));
+                // Log request headers
+                xhr.onreadystatechange = () => {
+                    console.log('XHR state change:', {
+                        state: xhr.readyState,
+                        status: xhr.status,
+                        statusText: xhr.statusText
+                    });
+                    
+                    if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED) {
+                        console.log('Response headers received:', xhr.getAllResponseHeaders());
                     }
                 };
                 
-                xhr.onerror = () => {
-                    reject(new Error('Network error'));
+                xhr.onload = () => {
+                    console.log('XHR load complete:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseType: xhr.responseType,
+                        responseSize: xhr.response ? xhr.response.size : 0
+                    });
+                    
+                    if (xhr.status === 200) {
+                        if (xhr.response && xhr.response.size > 0) {
+                            console.log('Download successful:', {
+                                type: xhr.response.type,
+                                size: xhr.response.size
+                            });
+                            resolve(xhr.response);
+                        } else {
+                            reject(new Error('Response empty or invalid'));
+                        }
+                    } else {
+                        reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                    }
+                };
+                
+                xhr.onerror = (e) => {
+                    console.error('XHR error:', e);
+                    reject(new Error('Network error: ' + e.type));
                 };
                 
                 xhr.onprogress = (event) => {
                     if (event.lengthComputable) {
                         const percent = Math.round((event.loaded / event.total) * 100);
+                        console.log('Download progress:', {
+                            filename: video.filename,
+                            loaded: event.loaded,
+                            total: event.total,
+                            percent: percent
+                        });
                         this.updateStatus(`Descargando ${video.filename}: ${percent}%`);
-                        console.log('Download progress:', percent + '%');
                     }
                 };
                 
+                console.log('Sending XHR request for:', video.filename);
                 xhr.send();
+            });
+            
+            console.log('Blob received, processing:', {
+                filename: video.filename,
+                type: blob.type,
+                size: blob.size
             });
             
             return this.processVideoBlob(blob, video);
             
         } catch (error) {
-            console.error('Error downloading video:', video.filename, error);
+            console.error('Download failed:', video.filename, error);
             return null;
         }
     }
     
     async processVideoBlob(blob, video) {
-        console.log('Processing blob:', blob.type, blob.size);
+        console.log('Processing video blob:', {
+            filename: video.filename,
+            type: blob.type,
+            size: blob.size
+        });
         
         if (blob.size === 0) {
             throw new Error('Downloaded file is empty');
         }
-        
-        console.log('Download complete:', video.filename, 'size:', blob.size);
         
         const localUrl = URL.createObjectURL(blob);
         console.log('Created local URL:', localUrl);
         
         // Test if the video is playable
         const testVideo = document.createElement('video');
+        console.log('Testing video playability:', video.filename);
+        
         const canPlay = await new Promise((resolve) => {
             const timeout = setTimeout(() => {
+                console.log('Video test timed out:', video.filename);
                 testVideo.onerror = null;
                 testVideo.onloadedmetadata = null;
                 resolve(false);
             }, 5000);
             
             testVideo.onloadedmetadata = () => {
+                console.log('Video metadata loaded:', video.filename);
                 clearTimeout(timeout);
                 resolve(true);
             };
             
             testVideo.onerror = () => {
+                console.error('Video test error:', {
+                    filename: video.filename,
+                    error: testVideo.error
+                });
                 clearTimeout(timeout);
-                console.error('Test video error:', testVideo.error);
                 resolve(false);
             };
             
@@ -170,10 +221,12 @@ class VideoPlayer {
         });
         
         if (!canPlay) {
+            console.error('Video not playable:', video.filename);
             URL.revokeObjectURL(localUrl);
             throw new Error('Video file is not playable');
         }
         
+        console.log('Video processed successfully:', video.filename);
         this.localVideos.set(video.filename, localUrl);
         return localUrl;
     }
