@@ -3,8 +3,8 @@ const API_CONFIG = {
     // API settings
     BASE_URL: 'https://vinculo.com.py/new-player',
     API_KEY: 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK',
-    DEVICE_ID: 'local-device', // Default device ID for offline mode
-    PAIRED: false,
+    DEVICE_ID: 'device_20250119_06395bce', // Specific device ID
+    PAIRED: true,
     UPDATE_INTERVAL: 60000,
     CONTENT_CHECK_INTERVAL: 30000,
     ENDPOINTS: {
