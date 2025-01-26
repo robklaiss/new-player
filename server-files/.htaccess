@@ -1,0 +1,8 @@
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Range"
+Header set Access-Control-Expose-Headers "Content-Length, Content-Range, Content-Type"
+
+<FilesMatch "\.(mp4)$">
+    Header set Content-Type "video/mp4"
+</FilesMatch>

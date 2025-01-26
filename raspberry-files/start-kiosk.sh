@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Enable debugging
+set -x
+
 # Configuration
 KIOSK_DIR="/var/www/kiosk"
 KIOSK_FILES="$KIOSK_DIR/raspberry-files"
@@ -9,190 +12,171 @@ LOCK_FILE="$RUNTIME_DIR/kiosk.pid"
 LOG_FILE="/var/log/kiosk.log"
 DISPLAY=:0
 XAUTHORITY=/home/infoactive/.Xauthority
-
-# Ensure log directory exists and is writable
-if [ ! -d "$(dirname "$LOG_FILE")" ]; then
-    sudo mkdir -p "$(dirname "$LOG_FILE")"
-    sudo chown infoactive:infoactive "$(dirname "$LOG_FILE")"
-fi
-
-# Logging function with timestamp and path info
-log() {
-    local level="$1"
-    local message="$2"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" | tee -a "$LOG_FILE"
-}
-
-# Function to check directory/file permissions
-check_path() {
-    local path="$1"
-    local desc="$2"
-    
-    log "INFO" "Checking $desc: $path"
-    if [ -e "$path" ]; then
-        log "INFO" "  Exists: Yes"
-        log "INFO" "  Type: $(stat -c %F "$path")"
-        log "INFO" "  Permissions: $(stat -c %a "$path")"
-        log "INFO" "  Owner/Group: $(stat -c %U:%G "$path")"
-        if [ -L "$path" ]; then
-            log "INFO" "  Symlink points to: $(readlink -f "$path")"
-        fi
-        return 0
-    else
-        log "ERROR" "  Path does not exist: $path"
-        return 1
-    fi
-}
-
-# Validate all required paths exist
-log "INFO" "=== Starting Kiosk System ==="
-log "INFO" "User: $(whoami) ($(id -u):$(id -g))"
-log "INFO" "Groups: $(groups)"
-log "INFO" "PWD: $(pwd)"
-
-# Check all critical paths
-check_path "$KIOSK_DIR" "Kiosk Directory" || exit 1
-check_path "$KIOSK_FILES" "Kiosk Files Directory" || exit 1
-check_path "$XAUTHORITY" "X Authority File" || exit 1
-check_path "$RUNTIME_DIR" "Runtime Directory" || mkdir -p "$RUNTIME_DIR"
-
-# Log system information
-log "INFO" "System Information:"
-log "INFO" "  User: $(whoami)"
-log "INFO" "  Groups: $(groups)"
-log "INFO" "  UID: $(id -u)"
-log "INFO" "  GID: $(id -g)"
-log "INFO" "  PWD: $(pwd)"
-
-# Check all important paths
-check_path "/var/run" "Run Directory"
-check_path "/run" "Run Directory (alternative)"
-check_path "/run/user/$(id -u)" "User Runtime Directory"
-check_path "$LOG_FILE" "Log File"
-check_path "$(dirname "$LOCK_FILE")" "Lock File Directory"
+XDG_RUNTIME_DIR=/run/user/$(id -u)
 
 # Export display settings
-export DISPLAY XAUTHORITY
-log "INFO" "Display: $DISPLAY"
-log "INFO" "XAuthority: $XAUTHORITY"
+export DISPLAY XAUTHORITY XDG_RUNTIME_DIR
+
+# Ensure we can write to the log
+touch "$LOG_FILE" 2>/dev/null || sudo touch "$LOG_FILE"
+sudo chown infoactive:infoactive "$LOG_FILE" 2>/dev/null || true
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+# Error handler
+error_handler() {
+    local line_no=$1
+    local error_code=$2
+    log "ERROR: Command failed at line $line_no with exit code $error_code"
+    # Don't exit on error, just log it
+}
+
+# Set error trap
+trap 'error_handler ${LINENO} $?' ERR
 
 # Cleanup function
 cleanup() {
-    log "INFO" "Cleaning up..."
-    pkill -f "chromium.*--app=http://localhost:$HTTP_PORT" || true
+    log "INFO: Cleaning up processes..."
+    pkill -f "chromium.*--kiosk.*localhost:$HTTP_PORT" || true
     pkill -f "python3 -m http.server $HTTP_PORT" || true
-    [ -f "$LOCK_FILE" ] && rm -f "$LOCK_FILE" || true
+    [ -f "$LOCK_FILE" ] && rm -f "$LOCK_FILE"
     exit 0
 }
 
-# Set up trap for cleanup
-trap cleanup EXIT INT TERM
+# Set up cleanup trap
+trap cleanup SIGTERM SIGINT SIGHUP EXIT
 
-# Wait for X server to be ready
-for i in $(seq 1 60); do
-    if xset q &>/dev/null; then
+# Log initial state
+log "INFO: Starting kiosk script..."
+log "INFO: User: $(whoami)"
+log "INFO: Groups: $(groups)"
+log "INFO: Display: $DISPLAY"
+log "INFO: XAuthority: $XAUTHORITY"
+log "INFO: Working Directory: $(pwd)"
+
+# Wait for Wayland and X11 socket
+while [ ! -e "$XDG_RUNTIME_DIR/wayland-0" ] || [ ! -e "/tmp/.X11-unix/X0" ]; do
+    log "INFO: Waiting for display server..."
+    sleep 1
+done
+
+# Additional Wayland-specific environment
+export MOZ_ENABLE_WAYLAND=1
+
+# Ensure X server access
+for i in $(seq 1 30); do
+    if xhost +local:infoactive; then
+        log "INFO: X server access granted"
         break
+    fi
+    if [ $i -eq 30 ]; then
+        log "WARN: Could not set xhost access, continuing anyway"
     fi
     sleep 1
 done
 
-# Ensure we have X server access
-xhost +local:infoactive || true
+# Configure X11 settings (retry if failed)
+for cmd in "xset -dpms" "xset s off" "xset s noblank"; do
+    for i in $(seq 1 3); do
+        if $cmd; then
+            break
+        fi
+        sleep 1
+    done
+done
 
-CHROME_FLAGS="
-    --kiosk 
-    --noerrdialogs 
-    --disable-infobars
-    --no-sandbox
-    --start-maximized
-    --window-position=0,0
-    --window-size=1920,1080
-    --autoplay-policy=no-user-gesture-required
-    --disable-gpu-vsync
-    --ignore-gpu-blocklist
-    --disable-gpu-driver-bug-workarounds
-    --enable-gpu-rasterization
-    --enable-zero-copy
-    --enable-accelerated-video-decode
-    --enable-accelerated-mjpeg-decode
-    --enable-features=VaapiVideoDecoder
-    --disable-features=UseOzonePlatform
-    --use-gl=egl
-    --enable-hardware-overlays
-    --force-device-scale-factor=1
-    --disable-background-timer-throttling
-    --disable-backgrounding-occluded-windows
-    --disk-cache-size=1
-    --media-cache-size=1
-    --process-per-site
-    --disable-restore-session-state
-    --disable-session-crashed-bubble
-    --disable-infobars
-    --check-for-update-interval=31536000
-"
+# Create runtime directory if needed
+mkdir -p "$RUNTIME_DIR" 2>/dev/null || sudo mkdir -p "$RUNTIME_DIR"
+sudo chown -R infoactive:infoactive "$RUNTIME_DIR" 2>/dev/null || true
 
-# Ensure lock file directory exists
-sudo mkdir -p "$(dirname "$LOCK_FILE")" || true
-sudo chown infoactive:infoactive "$(dirname "$LOCK_FILE")" || true
-log "INFO" "Lock file directory created: $(stat -c %a "$(dirname "$LOCK_FILE")")"
-
-# Configure X11 settings
-log "INFO" "Configuring X11 settings..."
-xset -dpms || true
-xset s off || true
-xset s noblank || true
-
-# Kill any existing processes
-pkill -f "chromium.*--app=http://localhost:$HTTP_PORT" || true
-pkill -f "python3 -m http.server $HTTP_PORT" || true
-sleep 2
-
-# Create new lock file
-echo $$ > "$LOCK_FILE" || true
-log "INFO" "Lock file created: $(stat -c %a "$LOCK_FILE")"
+# Create lock file
+echo $$ > "$LOCK_FILE"
 
 # Start HTTP server
-log "INFO" "Starting HTTP server..."
-cd "$KIOSK_DIR"
+cd "$KIOSK_DIR" || {
+    log "ERROR: Failed to change to kiosk directory"
+    exit 1
+}
+
 python3 -m http.server $HTTP_PORT &
 HTTP_PID=$!
 
-# Wait for HTTP server to start
-sleep 2
+# Wait for HTTP server
+for i in $(seq 1 30); do
+    if curl -s http://localhost:$HTTP_PORT >/dev/null; then
+        log "INFO: HTTP server is running"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        log "ERROR: HTTP server failed to start"
+        exit 1
+    fi
+    sleep 1
+done
 
-# Start Chromium
-log "INFO" "Starting Chromium..."
-if command -v chromium-browser >/dev/null 2>&1; then
-    CHROMIUM_CMD=chromium-browser
-elif command -v chromium >/dev/null 2>&1; then
-    CHROMIUM_CMD=chromium
-else
-    log "ERROR" "Chromium not found"
-    exit 1
-fi
+# Chromium flags for software rendering
+CHROME_FLAGS="
+    --kiosk
+    --disable-gpu
+    --disable-gpu-compositing
+    --disable-gpu-rasterization
+    --disable-software-rasterizer
+    --disable-dev-shm-usage
+    --no-sandbox
+    --ignore-gpu-blocklist
+    --disable-accelerated-2d-canvas
+    --disable-accelerated-video-decode
+    --disable-gpu-memory-buffer-compositor-resources
+    --disable-gpu-memory-buffer-video-frames
+    --disable-gpu-vsync
+    --use-gl=swiftshader
+"
 
-$CHROMIUM_CMD $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
-CHROME_PID=$!
+# Additional Wayland-specific flags
+CHROMIUM_FLAGS="$CHROME_FLAGS --enable-features=UseOzonePlatform --ozone-platform=wayland"
 
-# Wait for browser to start
-sleep 5
+# Start Chromium (retry if failed)
+for i in $(seq 1 3); do
+    log "INFO: Starting Chromium (attempt $i)..."
+    chromium-browser $CHROMIUM_FLAGS "http://localhost:$HTTP_PORT" &
+    CHROME_PID=$!
+    
+    sleep 5
+    
+    if kill -0 $CHROME_PID 2>/dev/null; then
+        log "INFO: Browser started successfully"
+        break
+    else
+        log "ERROR: Browser failed to start"
+        if [ $i -eq 3 ]; then
+            log "ERROR: All browser start attempts failed"
+            cleanup
+            exit 1
+        fi
+    fi
+done
 
-# Monitor processes
+log "INFO: Kiosk startup complete"
+
+# Monitor browser and restart if needed
 while true; do
     if ! kill -0 $CHROME_PID 2>/dev/null; then
-        log "ERROR" "Chromium crashed, restarting..."
-        $CHROMIUM_CMD $CHROME_FLAGS --app=http://localhost:$HTTP_PORT/index.html &
+        log "ERROR: Browser died, restarting..."
+        chromium-browser $CHROMIUM_FLAGS "http://localhost:$HTTP_PORT" &
         CHROME_PID=$!
         sleep 5
     fi
     
     if ! kill -0 $HTTP_PID 2>/dev/null; then
-        log "ERROR" "HTTP server crashed, restarting..."
-        cd "$KIOSK_DIR"
+        log "ERROR: HTTP server died, restarting..."
+        cd "$KIOSK_DIR" || continue
         python3 -m http.server $HTTP_PORT &
         HTTP_PID=$!
         sleep 2
     fi
     
-    sleep 5
+    sleep 1
 done
