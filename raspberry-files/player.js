@@ -5,6 +5,7 @@ class VideoPlayer {
         this.loader = document.getElementById('loader');
         this.playlist = [];
         this.currentIndex = -1;
+        this.isFirstLoad = true;
         
         if (!this.video) {
             console.error('Video element not found');
@@ -15,6 +16,7 @@ class VideoPlayer {
         this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
+        this.video.preload = 'auto';
         
         // Local video directory
         this.videoDir = '/var/www/kiosk/videos/';
@@ -65,7 +67,7 @@ class VideoPlayer {
             const localPath = this.videoDir + filename;
             this.updatePlaylist([{
                 filename: filename,
-                url: 'file://' + localPath,
+                url: 'https://vinculo.com.py/new-player/videos/' + filename,
                 type: 'video/mp4'
             }]);
         }
@@ -74,19 +76,6 @@ class VideoPlayer {
     async downloadVideos(videos) {
         for (const video of videos) {
             try {
-                // Check if we already have this video locally
-                const localPath = `${this.videoDir}${video.filename}`;
-                try {
-                    const localResponse = await fetch(`file://${localPath}`);
-                    if (localResponse.ok) {
-                        console.log(`Video ${video.filename} already exists locally`);
-                        video.url = `file://${localPath}`;
-                        continue;
-                    }
-                } catch (e) {
-                    console.log(`Video ${video.filename} not found locally, downloading...`);
-                }
-
                 console.log(`Downloading video from: ${video.url}`);
                 const response = await fetch(video.url, {
                     method: 'GET',
@@ -122,36 +111,14 @@ class VideoPlayer {
                     throw new Error(`Failed to save video ${video.filename}: ${JSON.stringify(result)}`);
                 }
                 
-                // Verify the file was saved
-                const savedSize = result.size;
-                if (!savedSize || savedSize === 0) {
-                    throw new Error(`Video file ${video.filename} was not saved properly`);
-                }
-                
-                // Update the video URL to point to local file
-                video.url = `file://${localPath}`;
-                console.log(`Successfully downloaded and saved ${video.filename} to ${video.url}`);
-                
-                // Verify we can access the local file
-                try {
-                    const verifyResponse = await fetch(video.url);
-                    if (!verifyResponse.ok) {
-                        throw new Error('Cannot access local file');
-                    }
-                } catch (e) {
-                    throw new Error(`Cannot verify local file: ${e.message}`);
-                }
+                // Update the video URL to point to remote URL (local file:// protocol doesn't work in browser)
+                video.url = 'https://vinculo.com.py/new-player/videos/' + video.filename;
+                console.log(`Successfully downloaded video ${video.filename}`);
                 
             } catch (error) {
                 console.error(`Failed to download video ${video.filename}:`, error);
-                // Only fall back to remote URL if we must
-                if (!video.url.startsWith('file://')) {
-                    console.log(`Falling back to remote URL for ${video.filename}`);
-                } else {
-                    // If we were trying to use a local file that failed, try the remote URL
-                    video.url = video.url.replace('file://' + this.videoDir, 'https://vinculo.com.py/new-player/videos/');
-                    console.log(`Falling back to remote URL: ${video.url}`);
-                }
+                // Keep using the remote URL
+                console.log(`Using remote URL for ${video.filename}: ${video.url}`);
             }
         }
     }
@@ -185,6 +152,17 @@ class VideoPlayer {
             return;
         }
         
+        // Preload the next video
+        const nextIndex = (this.currentIndex + 1) % this.playlist.length;
+        const nextVideo = this.playlist[nextIndex];
+        if (nextVideo && nextVideo.url) {
+            const preloadLink = document.createElement('link');
+            preloadLink.rel = 'preload';
+            preloadLink.as = 'video';
+            preloadLink.href = nextVideo.url;
+            document.head.appendChild(preloadLink);
+        }
+        
         console.log('Playing next video:', video.filename);
         this.video.src = video.url;
         this.video.load();
@@ -202,12 +180,18 @@ class VideoPlayer {
     }
     
     setupEventListeners() {
+        // Only show loader on first load
         this.video.addEventListener('loadstart', () => {
-            if (this.loader) this.loader.style.display = 'block';
+            if (this.isFirstLoad && this.loader) {
+                this.loader.style.display = 'block';
+            }
         });
         
         this.video.addEventListener('canplay', () => {
-            if (this.loader) this.loader.style.display = 'none';
+            if (this.loader) {
+                this.loader.style.display = 'none';
+                this.isFirstLoad = false;
+            }
         });
         
         this.video.addEventListener('playing', () => {
