@@ -17,9 +17,11 @@ class VideoPlayer {
         this.video.muted = true;
         this.video.playsInline = true;
         this.video.preload = 'auto';
+        this.video.autoplay = true;
         
         // Add hardware acceleration hint
         this.video.style.transform = 'translateZ(0)';
+        this.video.style.webkitTransform = 'translateZ(0)';
         
         // Local video directory
         this.videoDir = '/var/www/kiosk/videos/';
@@ -56,14 +58,22 @@ class VideoPlayer {
     
     async loadVideos() {
         try {
-            this.updateStatus('Buscando videos...');
+            this.updateStatus('Verificando videos locales...');
             
-            // Try to load local video list first
-            const localVideoList = await this.getLocalVideos();
-            if (localVideoList && localVideoList.length > 0) {
-                this.updatePlaylist(localVideoList);
+            // Always check local files first
+            const localFiles = await this.getLocalFiles();
+            if (localFiles.length > 0) {
+                console.log('Found local files:', localFiles);
+                this.updatePlaylist(localFiles.map(file => ({
+                    filename: file,
+                    url: 'file://' + this.videoDir + file,
+                    type: 'video/mp4'
+                })));
                 return;
             }
+            
+            this.updateStatus('Descargando videos nuevos...');
+            if (this.loader) this.loader.style.display = 'block';
             
             // Try to fetch from remote API
             try {
@@ -74,38 +84,31 @@ class VideoPlayer {
                 });
                 
                 if (!response.ok) {
-                    throw new Error('HTTP error! status: ' + response.status);
+                    throw new Error('Error de conexión: ' + response.status);
                 }
                 
                 const data = await response.json();
                 if (data.content && data.content.videos && data.content.videos.length > 0) {
                     const videos = Array.isArray(data.content.videos) ? data.content.videos : [data.content.videos];
                     
-                    // Tell service worker to cache videos
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({
-                            type: 'CACHE_VIDEOS',
-                            videos: videos.map(video => ({
-                                url: video.url || (this.remoteVideoUrl + video.filename),
-                                filename: video.filename
-                            }))
-                        });
-                    }
+                    // Download videos to local storage
+                    await this.downloadVideos(videos);
                     
-                    this.updatePlaylist(videos);
+                    // After download, use local files
+                    const newLocalFiles = await this.getLocalFiles();
+                    this.updatePlaylist(newLocalFiles.map(file => ({
+                        filename: file,
+                        url: 'file://' + this.videoDir + file,
+                        type: 'video/mp4'
+                    })));
                 } else {
-                    throw new Error('No videos available from API');
+                    throw new Error('No hay videos disponibles');
                 }
             } catch (error) {
-                console.warn('Failed to fetch remote videos:', error);
-                // If remote fetch fails, try to use local files directly
-                const filename = 'verano-pile-opt-ok.mp4';
-                const localPath = this.videoDir + filename;
-                this.updatePlaylist([{
-                    filename: filename,
-                    url: 'file://' + localPath,
-                    type: 'video/mp4'
-                }]);
+                console.warn('Error al obtener videos remotos:', error);
+                this.updateStatus('Error: ' + error.message);
+                if (this.loader) this.loader.style.display = 'none';
+                setTimeout(() => this.loadVideos(), 5000);
             }
         } catch (error) {
             console.error('Error loading videos:', error);
@@ -115,27 +118,44 @@ class VideoPlayer {
         }
     }
     
-    async getLocalVideos() {
+    async getLocalFiles() {
         try {
-            const cache = await caches.open('video-cache-v1');
-            const keys = await cache.keys();
-            const videos = [];
-            
-            for (const request of keys) {
-                if (request.url.endsWith('.mp4')) {
-                    const filename = request.url.split('/').pop();
-                    videos.push({
-                        filename: filename,
-                        url: request.url,
-                        type: 'video/mp4'
-                    });
-                }
+            // Use fetch to call a local endpoint that lists files
+            const response = await fetch('/list-videos');
+            if (!response.ok) {
+                throw new Error('Could not list local videos');
             }
-            
-            return videos;
+            const files = await response.json();
+            return files.filter(file => file.endsWith('.mp4'));
         } catch (error) {
-            console.warn('Error getting cached videos:', error);
+            console.warn('Error listing local videos:', error);
             return [];
+        }
+    }
+    
+    async downloadVideos(videos) {
+        for (const video of videos) {
+            try {
+                const url = video.url || (this.remoteVideoUrl + video.filename);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Download failed');
+                
+                const blob = await response.blob();
+                const filename = video.filename;
+                
+                // Use fetch to send the video to a local endpoint that saves it
+                const formData = new FormData();
+                formData.append('video', blob, filename);
+                
+                await fetch('/save-video', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Downloaded and saved:', filename);
+            } catch (error) {
+                console.error('Error downloading video:', video.filename, error);
+            }
         }
     }
     
