@@ -4,15 +4,12 @@
     <title>Kiosk Video Player</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
     <style>
         body {
             margin: 0;
             padding: 0;
             background: black;
             overflow: hidden;
-            font-family: Arial, sans-serif;
         }
         #video {
             position: fixed;
@@ -21,14 +18,6 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
-            -webkit-transform-style: preserve-3d;
-            transform-style: preserve-3d;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            transform: translateZ(0);
-            -webkit-transform: translateZ(0);
-            will-change: transform;
-            perspective: 1000px;
         }
         #loader {
             position: fixed;
@@ -38,11 +27,6 @@
             text-align: center;
             color: white;
             z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-        #loader.visible {
-            opacity: 1;
         }
         #loader .spinner {
             width: 50px;
@@ -56,7 +40,6 @@
         #status {
             font-size: 18px;
             margin-bottom: 10px;
-            opacity: 0.8;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -65,26 +48,11 @@
     </style>
 </head>
 <body>
-    <video id="video" playsinline muted autoplay></video>
+    <video id="video" playsinline muted></video>
     <div id="loader">
         <div class="spinner"></div>
         <div id="status">Cargando...</div>
     </div>
-    <script>
-        // Register service worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registered:', registration);
-                    })
-                    .catch(error => {
-                        console.error('ServiceWorker registration failed:', error);
-                    });
-            });
-        }
-    </script>
-    <script src="config.js"></script>
     <script src="player.js"></script>
 </body>
 </html>
