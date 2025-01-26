@@ -52,6 +52,8 @@ class VideoPlayer {
             const data = await response.json();
             if (data.content && data.content.videos && data.content.videos.length > 0) {
                 const videos = Array.isArray(data.content.videos) ? data.content.videos : [data.content.videos];
+                // Download videos before updating playlist
+                await this.downloadVideos(videos);
                 this.updatePlaylist(videos);
             } else {
                 throw new Error('No videos available from API');
@@ -66,6 +68,38 @@ class VideoPlayer {
                 url: 'file://' + localPath,
                 type: 'video/mp4'
             }]);
+        }
+    }
+
+    async downloadVideos(videos) {
+        for (const video of videos) {
+            try {
+                const response = await fetch(video.url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                // Create a Blob from the video data
+                const blob = await response.blob();
+                
+                // Create a FormData object
+                const formData = new FormData();
+                formData.append('video', blob, video.filename);
+                
+                // Send the video to a PHP endpoint that will save it
+                const saveResponse = await fetch('/save-video.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!saveResponse.ok) {
+                    throw new Error(`Failed to save video ${video.filename}`);
+                }
+                
+                // Update the video URL to point to local file
+                video.url = `${this.videoDir}${video.filename}`;
+                console.log(`Downloaded and saved ${video.filename}`);
+            } catch (error) {
+                console.error(`Failed to download video ${video.filename}:`, error);
+            }
         }
     }
     
