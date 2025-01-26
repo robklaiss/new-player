@@ -84,7 +84,15 @@ class VideoPlayer {
                 // Check if video exists locally via HTTP
                 const localUrl = `/kiosk/videos/${video.filename}`;
                 try {
-                    const localResponse = await fetch(localUrl, { method: 'HEAD' });
+                    console.log(`Checking local URL: ${localUrl}`);
+                    const localResponse = await fetch(localUrl, { 
+                        method: 'HEAD',
+                        headers: {
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
+                    console.log('Local check response:', localResponse.status, localResponse.statusText);
+                    
                     if (localResponse.ok) {
                         console.log(`Using existing local video: ${localUrl}`);
                         video.url = localUrl;
@@ -114,21 +122,45 @@ class VideoPlayer {
                 formData.append('video', blob, video.filename);
                 
                 console.log('Saving to local storage...');
+                console.log('FormData contents:', {
+                    filename: video.filename,
+                    blobSize: blob.size,
+                    blobType: blob.type
+                });
+                
                 const saveResponse = await fetch('/raspberry-files/save-video.php', {
                     method: 'POST',
                     body: formData
                 });
                 
-                const saveResult = await saveResponse.json();
-                console.log('Save result:', saveResult);
+                console.log('Save response status:', saveResponse.status, saveResponse.statusText);
+                const saveResult = await saveResponse.text(); // Get raw response first
+                console.log('Raw save response:', saveResult);
                 
-                if (!saveResponse.ok || !saveResult.success) {
-                    throw new Error(`Save failed: ${JSON.stringify(saveResult)}`);
+                let parsedResult;
+                try {
+                    parsedResult = JSON.parse(saveResult);
+                } catch (e) {
+                    console.error('Failed to parse save response:', e);
+                    throw new Error('Invalid response from save-video.php');
+                }
+                
+                console.log('Parsed save result:', parsedResult);
+                
+                if (!saveResponse.ok || !parsedResult.success) {
+                    throw new Error(`Save failed: ${JSON.stringify(parsedResult)}`);
                 }
                 
                 // Verify local file exists
                 console.log('Verifying local file...');
-                const verifyResponse = await fetch(localUrl, { method: 'HEAD' });
+                const verifyResponse = await fetch(localUrl, { 
+                    method: 'HEAD',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                console.log('Verify response:', verifyResponse.status, verifyResponse.statusText);
+                
                 if (verifyResponse.ok) {
                     console.log(`Local file verified, using: ${localUrl}`);
                     video.url = localUrl;
