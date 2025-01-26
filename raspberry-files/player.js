@@ -74,31 +74,38 @@ class VideoPlayer {
     async downloadVideos(videos) {
         for (const video of videos) {
             try {
+                console.log(`Downloading video from: ${video.url}`);
                 const response = await fetch(video.url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 
                 // Create a Blob from the video data
                 const blob = await response.blob();
+                console.log(`Video blob size: ${blob.size} bytes`);
                 
                 // Create a FormData object
                 const formData = new FormData();
                 formData.append('video', blob, video.filename);
                 
                 // Send the video to a PHP endpoint that will save it
-                const saveResponse = await fetch('/save-video.php', {
+                console.log(`Saving video ${video.filename} to server...`);
+                const saveResponse = await fetch('/raspberry-files/save-video.php', {
                     method: 'POST',
                     body: formData
                 });
                 
+                const result = await saveResponse.json();
+                
                 if (!saveResponse.ok) {
-                    throw new Error(`Failed to save video ${video.filename}`);
+                    throw new Error(`Failed to save video ${video.filename}: ${JSON.stringify(result)}`);
                 }
                 
                 // Update the video URL to point to local file
-                video.url = `${this.videoDir}${video.filename}`;
-                console.log(`Downloaded and saved ${video.filename}`);
+                video.url = `file://${this.videoDir}${video.filename}`;
+                console.log(`Successfully downloaded and saved ${video.filename} to ${video.url}`);
             } catch (error) {
                 console.error(`Failed to download video ${video.filename}:`, error);
+                // Keep the remote URL if download fails
+                console.log(`Falling back to remote URL for ${video.filename}`);
             }
         }
     }
