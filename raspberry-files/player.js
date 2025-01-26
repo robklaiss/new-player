@@ -19,9 +19,15 @@ class VideoPlayer {
         this.video.preload = 'auto';
         this.video.autoplay = true;
         
-        // Add hardware acceleration hint
+        // Add hardware acceleration and performance hints
         this.video.style.transform = 'translateZ(0)';
         this.video.style.webkitTransform = 'translateZ(0)';
+        this.video.style.backfaceVisibility = 'hidden';
+        this.video.style.perspective = '1000px';
+        this.video.style.willChange = 'transform';
+        
+        // Disable right-click menu
+        this.video.addEventListener('contextmenu', (e) => e.preventDefault());
         
         // Local video directory
         this.videoDir = '/var/www/kiosk/videos/';
@@ -191,32 +197,25 @@ class VideoPlayer {
         
         console.log('Playing next video:', video.filename, 'index:', this.currentIndex);
         
-        // Pre-load the next video aggressively
-        const nextIndex = (this.currentIndex + 1) % this.playlist.length;
-        const nextVideo = this.playlist[nextIndex];
-        if (nextVideo && nextVideo.url) {
-            const preloadVideo = document.createElement('video');
-            preloadVideo.preload = 'auto';
-            preloadVideo.src = nextVideo.url;
-            
-            preloadVideo.addEventListener('loadedmetadata', () => {
-                console.log('Preloaded next video:', nextVideo.filename);
-            });
-            
-            preloadVideo.load();
-            setTimeout(() => preloadVideo.remove(), 10000);
-        }
+        // Hide loader only when video is actually playing
+        if (this.loader) this.loader.style.display = 'none';
         
-        // Set current video source and force load
+        // Set current video source and play
         this.video.src = video.url;
+        
+        // Force a clean reload
         this.video.load();
         
+        // Try to play immediately
         const playPromise = this.video.play();
         if (playPromise) {
             playPromise.catch(error => {
                 console.error('Error playing video:', error);
-                this.updateStatus('Error al reproducir video');
-                setTimeout(() => this.playNext(), 5000);
+                // Only show error if it's not a user interaction error
+                if (error.name !== 'NotAllowedError') {
+                    this.updateStatus('Error al reproducir video');
+                    setTimeout(() => this.playNext(), 2000);
+                }
             });
         }
     }
@@ -229,52 +228,52 @@ class VideoPlayer {
     }
     
     setupEventListeners() {
+        // Minimize loader visibility by only showing it when actually loading
+        let loadingTimeout;
+        
         this.video.addEventListener('loadstart', () => {
             console.log('Video loadstart');
-            this.updateStatus('Iniciando carga...');
-            if (this.loader) this.loader.style.display = 'block';
-            this.video.classList.remove('ready');
+            // Only show loader after a small delay to avoid flashing
+            loadingTimeout = setTimeout(() => {
+                if (this.loader && !this.video.readyState) {
+                    this.loader.style.display = 'block';
+                }
+            }, 500);
+        });
+        
+        this.video.addEventListener('loadeddata', () => {
+            console.log('Video data loaded');
+            clearTimeout(loadingTimeout);
+            if (this.loader) this.loader.style.display = 'none';
         });
         
         this.video.addEventListener('canplay', () => {
             console.log('Video can play');
+            clearTimeout(loadingTimeout);
             if (this.loader) this.loader.style.display = 'none';
-            this.video.classList.add('ready');
         });
         
         this.video.addEventListener('playing', () => {
             console.log('Video playing:', this.getCurrentVideoName());
-            this.updateStatus('Reproduciendo: ' + this.getCurrentVideoName());
+            clearTimeout(loadingTimeout);
             if (this.loader) this.loader.style.display = 'none';
-            this.video.classList.add('ready');
+            this.updateStatus('Reproduciendo: ' + this.getCurrentVideoName());
         });
         
         this.video.addEventListener('waiting', () => {
             console.log('Video waiting');
-            this.updateStatus('Cargando video...');
             if (this.loader) this.loader.style.display = 'block';
         });
         
-        this.video.addEventListener('ended', () => {
-            console.log('Video ended, playing next');
-            this.playNext();
+        this.video.addEventListener('error', (e) => {
+            console.error('Video error:', e.target.error);
+            this.updateStatus('Error en el video');
+            setTimeout(() => this.playNext(), 2000);
         });
         
-        this.video.addEventListener('error', (e) => {
-            const error = e.target.error;
-            let errorMsg = 'Error desconocido';
-            if (error) {
-                switch (error.code) {
-                    case MediaError.MEDIA_ERR_ABORTED: errorMsg = 'Carga abortada'; break;
-                    case MediaError.MEDIA_ERR_NETWORK: errorMsg = 'Error de red'; break;
-                    case MediaError.MEDIA_ERR_DECODE: errorMsg = 'Error de decodificación'; break;
-                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMsg = 'Formato no soportado'; break;
-                }
-            }
-            console.error('Video error:', error, errorMsg);
-            this.updateStatus('Error: ' + errorMsg);
-            if (this.loader) this.loader.style.display = 'none';
-            setTimeout(() => this.playNext(), 5000);
+        this.video.addEventListener('ended', () => {
+            console.log('Video ended');
+            this.playNext();
         });
     }
     
