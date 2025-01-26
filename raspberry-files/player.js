@@ -5,7 +5,7 @@ class VideoPlayer {
         this.loader = document.getElementById('loader');
         this.playlist = [];
         this.currentIndex = -1;
-        this.isFirstLoad = true;
+        this.nextVideo = null;
         
         if (!this.video) {
             console.error('Video element not found');
@@ -24,8 +24,10 @@ class VideoPlayer {
         // Remote video URL
         this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
         
-        // Hide loader initially
-        if (this.loader) this.loader.style.display = 'none';
+        // Hide loader permanently - we don't need it for video transitions
+        if (this.loader) {
+            this.loader.style.display = 'none';
+        }
         
         // Add video event listeners
         this.setupEventListeners();
@@ -152,24 +154,32 @@ class VideoPlayer {
             return;
         }
         
-        // Preload the next video
+        // Start preloading the next video immediately
         const nextIndex = (this.currentIndex + 1) % this.playlist.length;
         const nextVideo = this.playlist[nextIndex];
         if (nextVideo && nextVideo.url) {
-            const preloadLink = document.createElement('link');
-            preloadLink.rel = 'preload';
-            preloadLink.as = 'video';
-            preloadLink.href = nextVideo.url;
-            document.head.appendChild(preloadLink);
+            // Create a hidden video element to preload the next video
+            if (this.nextVideo) {
+                this.nextVideo.remove();
+            }
+            this.nextVideo = document.createElement('video');
+            this.nextVideo.style.display = 'none';
+            this.nextVideo.preload = 'auto';
+            this.nextVideo.src = nextVideo.url;
+            document.body.appendChild(this.nextVideo);
         }
         
         console.log('Playing next video:', video.filename);
         this.video.src = video.url;
-        this.video.load();
-        this.video.play().catch(error => {
-            console.error('Error playing video:', error);
-            setTimeout(() => this.playNext(), 2000);
-        });
+        
+        // Play immediately without showing loader
+        const playPromise = this.video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error('Error playing video:', error);
+                setTimeout(() => this.playNext(), 2000);
+            });
+        }
     }
     
     updateStatus(message) {
@@ -180,23 +190,7 @@ class VideoPlayer {
     }
     
     setupEventListeners() {
-        // Only show loader on first load
-        this.video.addEventListener('loadstart', () => {
-            if (this.isFirstLoad && this.loader) {
-                this.loader.style.display = 'block';
-            }
-        });
-        
-        this.video.addEventListener('canplay', () => {
-            if (this.loader) {
-                this.loader.style.display = 'none';
-                this.isFirstLoad = false;
-            }
-        });
-        
-        this.video.addEventListener('playing', () => {
-            if (this.loader) this.loader.style.display = 'none';
-        });
+        // Remove loadstart listener as we don't need the loader anymore
         
         this.video.addEventListener('error', () => {
             console.error('Video error');
