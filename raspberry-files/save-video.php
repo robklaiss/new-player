@@ -1,4 +1,12 @@
 <?php
+// Load custom PHP configuration
+if (file_exists(__DIR__ . '/php.ini')) {
+    $ini_array = parse_ini_file(__DIR__ . '/php.ini');
+    foreach ($ini_array as $key => $value) {
+        ini_set($key, $value);
+    }
+}
+
 // Force error reporting at the start
 ini_set('display_errors', 1);
 ini_set('log_errors', 1);
@@ -19,9 +27,13 @@ function logMessage($message) {
     file_put_contents('/var/log/kiosk-video.log', "[$timestamp] $message\n", FILE_APPEND);
 }
 
-// Log script start
+// Log script start with full request details
 logMessage("=== Video upload script started ===");
-logMessage("POST data size: " . (isset($_SERVER['CONTENT_LENGTH']) ? $_SERVER['CONTENT_LENGTH'] : 'unknown'));
+logMessage("Server variables: " . print_r($_SERVER, true));
+logMessage("POST size: " . (isset($_SERVER['CONTENT_LENGTH']) ? $_SERVER['CONTENT_LENGTH'] : 'unknown'));
+logMessage("Upload max filesize: " . ini_get('upload_max_filesize'));
+logMessage("Post max size: " . ini_get('post_max_size'));
+logMessage("Memory limit: " . ini_get('memory_limit'));
 logMessage("Files received: " . print_r($_FILES, true));
 
 // Check directory exists and permissions
@@ -51,13 +63,13 @@ logMessage("Directory permissions: " . substr(sprintf('%o', fileperms($videoDir)
 logMessage("Directory owner: " . posix_getpwuid(fileowner($videoDir))['name']);
 
 if (!isset($_FILES['video'])) {
-    logMessage("No video file received");
+    logMessage("No video file received in request");
     http_response_code(400);
     die(json_encode(['success' => false, 'error' => 'No video file received']));
 }
 
 $file = $_FILES['video'];
-logMessage("Received file: " . print_r($file, true));
+logMessage("Received file details: " . print_r($file, true));
 
 if ($file['error'] !== UPLOAD_ERR_OK) {
     $uploadErrors = [
@@ -80,12 +92,18 @@ logMessage("Moving file to: " . $targetPath);
 
 if (move_uploaded_file($file['tmp_name'], $targetPath)) {
     chmod($targetPath, 0644);
+    chown($targetPath, 'www-data');
     $filesize = filesize($targetPath);
     logMessage("File saved successfully. Size: " . $filesize . " bytes");
     echo json_encode(['success' => true, 'path' => $targetPath, 'size' => $filesize]);
 } else {
     $error = error_get_last();
     logMessage("Failed to move uploaded file: " . $error['message']);
+    logMessage("Temporary file exists: " . (file_exists($file['tmp_name']) ? 'yes' : 'no'));
+    logMessage("Temporary file readable: " . (is_readable($file['tmp_name']) ? 'yes' : 'no'));
+    logMessage("Target directory writable: " . (is_writable($videoDir) ? 'yes' : 'no'));
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Failed to save file']);
 }
+
+logMessage("=== Video upload script finished ===");
