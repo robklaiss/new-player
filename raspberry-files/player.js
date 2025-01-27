@@ -6,38 +6,34 @@ class VideoPlayer {
         this.playlist = [];
         this.currentIndex = -1;
         
-        // Remove nextVideo preloading to reduce memory usage
-        this.nextVideo = null;
-        
         if (!this.video) {
             console.error('Video element not found');
             return;
         }
         
-        // Optimize video settings for performance
+        // Most minimal video settings
         this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
+        this.video.preload = 'none'; // Even more aggressive - only load when needed
         
-        // Reduce initial memory allocation by setting preload to metadata
-        this.video.preload = 'metadata';
-        
-        // Set video size constraints to reduce processing overhead
-        this.video.style.maxWidth = '100%';
-        this.video.style.maxHeight = '100%';
+        // Force hardware acceleration and reduce quality for performance
+        this.video.style.transform = 'translateZ(0)';
+        this.video.style.width = '100%';
+        this.video.style.height = '100%';
         this.video.style.objectFit = 'contain';
         
-        // Basic hardware acceleration without excessive properties
-        this.video.style.transform = 'translateZ(0)';
+        // Reduce memory usage by limiting video buffer
+        if (this.video.bufferSize !== undefined) {
+            this.video.bufferSize = 5 * 1024 * 1024; // 5MB buffer
+        }
         
-        // Local video directory and paths
         this.videoDir = '/var/www/kiosk/videos/';
         this.saveVideoPath = '/raspberry-files/save-video.php';
         this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
         
-        // Hide loader
         if (this.loader) {
-            this.loader.style.display = 'none';
+            this.loader.remove(); // Remove completely instead of just hiding
         }
         
         // Setup minimal event listeners
@@ -46,8 +42,8 @@ class VideoPlayer {
         console.log('Starting video player...');
         this.loadVideos();
         
-        // Reduce polling frequency
-        setInterval(() => this.loadVideos(), 3600000);
+        // Check for new videos less frequently
+        setInterval(() => this.loadVideos(), 7200000); // Every 2 hours
     }
     
     setupEventListeners() {
@@ -77,23 +73,28 @@ class VideoPlayer {
         this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         const video = this.playlist[this.currentIndex];
         
-        if (!video || !video.url) {
-            console.error('Invalid video or missing URL:', video);
+        if (!video?.url) {
             setTimeout(() => this.playNext(), 1000);
             return;
         }
 
         try {
-            // Clean up current video before loading next
+            // Garbage collection hint
+            if (window.gc) window.gc();
+            
+            // Clean up current video
+            this.video.src = '';
             this.video.removeAttribute('src');
             this.video.load();
+            
+            // Small delay to ensure cleanup
+            await new Promise(resolve => setTimeout(resolve, 50));
             
             // Load and play new video
             this.video.src = `${this.videoDir}${video.filename}`;
             await this.video.play();
             
         } catch (error) {
-            console.error('Error playing video:', error);
             setTimeout(() => this.playNext(), 1000);
         }
     }
