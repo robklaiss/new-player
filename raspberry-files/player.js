@@ -18,8 +18,9 @@ class VideoPlayer {
         this.video.playsInline = true;
         this.video.preload = 'auto';
         
-        // Local video directory
+        // Local video directory and paths
         this.videoDir = '/var/www/kiosk/videos/';
+        this.saveVideoPath = '/raspberry-files/save-video.php';
         
         // Remote video URL
         this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
@@ -81,98 +82,58 @@ class VideoPlayer {
                 // Log the attempt
                 console.log(`Processing video: ${video.filename}`);
                 
-                // Check if video exists locally via HTTP
-                const localUrl = `/kiosk/videos/${video.filename}`;
+                // Check if video exists locally
+                const localPath = `${this.videoDir}${video.filename}`;
+                console.log(`Checking local path: ${localPath}`);
+                
                 try {
-                    console.log(`Checking local URL: ${localUrl}`);
-                    const localResponse = await fetch(localUrl, { 
-                        method: 'HEAD',
-                        headers: {
-                            'Cache-Control': 'no-cache'
-                        }
+                    const response = await fetch(video.url, {
+                        method: 'GET',
+                        cache: 'no-store'
                     });
-                    console.log('Local check response:', localResponse.status, localResponse.statusText);
                     
-                    if (localResponse.ok) {
-                        console.log(`Using existing local video: ${localUrl}`);
-                        video.url = localUrl;
-                        continue;
+                    if (!response.ok) {
+                        throw new Error(`Download failed: ${response.status}`);
                     }
-                } catch (e) {
-                    console.log(`Local video not found: ${e.message}`);
-                }
-
-                // Download from remote
-                console.log(`Downloading from remote: ${video.url}`);
-                const response = await fetch(video.url, {
-                    method: 'GET',
-                    cache: 'no-store'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Download failed: ${response.status}`);
-                }
-                
-                // Get video data
-                const blob = await response.blob();
-                console.log(`Downloaded video size: ${blob.size} bytes`);
-                
-                // Save locally
-                const formData = new FormData();
-                formData.append('video', blob, video.filename);
-                
-                console.log('Saving to local storage...');
-                console.log('FormData contents:', {
-                    filename: video.filename,
-                    blobSize: blob.size,
-                    blobType: blob.type
-                });
-                
-                const saveResponse = await fetch('/raspberry-files/save-video.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                console.log('Save response status:', saveResponse.status, saveResponse.statusText);
-                const saveResult = await saveResponse.text(); // Get raw response first
-                console.log('Raw save response:', saveResult);
-                
-                let parsedResult;
-                try {
-                    parsedResult = JSON.parse(saveResult);
-                } catch (e) {
-                    console.error('Failed to parse save response:', e);
-                    throw new Error('Invalid response from save-video.php');
-                }
-                
-                console.log('Parsed save result:', parsedResult);
-                
-                if (!saveResponse.ok || !parsedResult.success) {
-                    throw new Error(`Save failed: ${JSON.stringify(parsedResult)}`);
-                }
-                
-                // Verify local file exists
-                console.log('Verifying local file...');
-                const verifyResponse = await fetch(localUrl, { 
-                    method: 'HEAD',
-                    headers: {
-                        'Cache-Control': 'no-cache'
+                    
+                    // Get video data
+                    const blob = await response.blob();
+                    console.log(`Downloaded video size: ${blob.size} bytes`);
+                    
+                    // Save locally
+                    const formData = new FormData();
+                    formData.append('video', blob, video.filename);
+                    
+                    console.log('Saving to local storage...');
+                    const saveResponse = await fetch(this.saveVideoPath, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!saveResponse.ok) {
+                        const text = await saveResponse.text();
+                        console.error('Save response:', text);
+                        throw new Error(`Save failed with status ${saveResponse.status}`);
                     }
-                });
-                console.log('Verify response:', verifyResponse.status, verifyResponse.statusText);
-                
-                if (verifyResponse.ok) {
-                    console.log(`Local file verified, using: ${localUrl}`);
-                    video.url = localUrl;
-                } else {
-                    throw new Error('Local file verification failed');
+                    
+                    const result = await saveResponse.json();
+                    console.log('Save result:', result);
+                    
+                    if (!result.success) {
+                        throw new Error(result.error || 'Failed to save video');
+                    }
+                    
+                    // Update video URL to use local path
+                    video.url = `/kiosk/videos/${video.filename}`;
+                    console.log(`Video saved successfully: ${video.url}`);
+                    
+                } catch (error) {
+                    console.error(`Error downloading ${video.filename}:`, error);
+                    // Keep the remote URL as fallback
+                    video.url = `https://vinculo.com.py/new-player/videos/${video.filename}`;
                 }
-                
             } catch (error) {
-                console.error(`Error processing ${video.filename}:`, error);
-                // Fallback to remote URL
-                video.url = 'https://vinculo.com.py/new-player/videos/' + video.filename;
-                console.log(`Falling back to remote URL: ${video.url}`);
+                console.error(`Failed to process ${video.filename}:`, error);
             }
         }
     }
