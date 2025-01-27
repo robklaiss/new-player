@@ -32,7 +32,7 @@ class DeviceMonitor:
     def __init__(self):
         try:
             logging.info("Initializing DeviceMonitor class")
-            self.content_dir = '/var/www/kiosk/player'
+            self.content_dir = '/var/www/kiosk'
             self.api_url = 'https://vinculo.com.py/new-player/api/update.php'
             self.api_key = 'w8oMou6uUiUQBE4fvoPamvdKjOwSCNBK'
             self.config_file = '/var/www/kiosk/player/device_config.json'
