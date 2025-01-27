@@ -12,11 +12,24 @@ class VideoPlayer {
             return;
         }
         
-        // Basic video settings
+        // Enhanced video settings for better performance
         this.video.loop = false;
         this.video.muted = true;
         this.video.playsInline = true;
         this.video.preload = 'auto';
+        
+        // Enable hardware acceleration
+        this.video.style.transform = 'translateZ(0)';
+        this.video.style.backfaceVisibility = 'hidden';
+        
+        // Add additional video attributes for better performance
+        this.video.setAttribute('playsinline', '');
+        this.video.setAttribute('webkit-playsinline', '');
+        this.video.setAttribute('x-webkit-airplay', 'allow');
+        
+        // Set optimal buffering strategy
+        this.video.preload = 'auto';
+        this.video.autobuffer = true;
         
         // Local video directory and paths
         this.videoDir = '/var/www/kiosk/videos/';
@@ -30,15 +43,15 @@ class VideoPlayer {
             this.loader.style.display = 'none';
         }
         
-        // Add video event listeners
+        // Add video event listeners with enhanced error handling
         this.setupEventListeners();
         
         // Start loading videos
         console.log('Starting video player...');
         this.loadVideos();
         
-        // Check for new videos every minute
-        setInterval(() => this.loadVideos(), 60000);
+        // Check for new videos every hour instead of every minute to reduce overhead
+        setInterval(() => this.loadVideos(), 3600000);
     }
     
     async loadVideos() {
@@ -152,7 +165,7 @@ class VideoPlayer {
         }
     }
     
-    playNext() {
+    async playNext() {
         if (this.playlist.length === 0) {
             this.updateStatus('No hay videos disponibles');
             return;
@@ -167,31 +180,32 @@ class VideoPlayer {
             return;
         }
         
-        // Start preloading the next video immediately
+        // Improved preloading strategy
         const nextIndex = (this.currentIndex + 1) % this.playlist.length;
         const nextVideo = this.playlist[nextIndex];
-        if (nextVideo && nextVideo.url) {
-            // Create a hidden video element to preload the next video
-            if (this.nextVideo) {
-                this.nextVideo.remove();
+        
+        try {
+            // Load current video
+            this.video.src = `${this.videoDir}${video.filename}`;
+            await this.video.play();
+            
+            // Preload next video
+            if (nextVideo && nextVideo.url) {
+                if (this.nextVideo) {
+                    this.nextVideo.remove();
+                }
+                this.nextVideo = document.createElement('video');
+                this.nextVideo.style.display = 'none';
+                this.nextVideo.preload = 'auto';
+                this.nextVideo.src = `${this.videoDir}${nextVideo.filename}`;
+                document.body.appendChild(this.nextVideo);
+                
+                // Start preloading but don't wait for it
+                this.nextVideo.load();
             }
-            this.nextVideo = document.createElement('video');
-            this.nextVideo.style.display = 'none';
-            this.nextVideo.preload = 'auto';
-            this.nextVideo.src = nextVideo.url;
-            document.body.appendChild(this.nextVideo);
-        }
-        
-        console.log('Playing next video:', video.filename);
-        this.video.src = video.url;
-        
-        // Play immediately without showing loader
-        const playPromise = this.video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.error('Error playing video:', error);
-                setTimeout(() => this.playNext(), 2000);
-            });
+        } catch (error) {
+            console.error('Error playing video:', error);
+            setTimeout(() => this.playNext(), 1000);
         }
     }
     
@@ -203,15 +217,46 @@ class VideoPlayer {
     }
     
     setupEventListeners() {
-        // Remove loadstart listener as we don't need the loader anymore
-        
-        this.video.addEventListener('error', () => {
-            console.error('Video error');
-            setTimeout(() => this.playNext(), 2000);
+        // Enhanced error handling and recovery
+        this.video.addEventListener('error', (e) => {
+            console.error('Video error:', e);
+            // Try to recover from error by reloading current video
+            const currentVideo = this.playlist[this.currentIndex];
+            if (currentVideo) {
+                console.log('Attempting to recover from error...');
+                this.video.load();
+                this.video.play().catch(err => {
+                    console.error('Recovery failed:', err);
+                    this.playNext(); // Move to next video if recovery fails
+                });
+            }
         });
-        
+
         this.video.addEventListener('ended', () => {
+            console.log('Video ended, playing next...');
             this.playNext();
+        });
+
+        // Add stall detection and recovery
+        this.video.addEventListener('stalled', () => {
+            console.log('Video stalled, attempting to recover...');
+            setTimeout(() => {
+                this.video.load();
+                this.video.play().catch(console.error);
+            }, 1000);
+        });
+
+        // Monitor buffering
+        this.video.addEventListener('waiting', () => {
+            console.log('Video buffering...');
+        });
+
+        // Clear memory when possible
+        this.video.addEventListener('emptied', () => {
+            if (this.nextVideo) {
+                this.nextVideo.src = '';
+                this.nextVideo.load();
+            }
         });
     }
 }
