@@ -5,7 +5,7 @@ class VideoPlayer {
         
         if (!this.video) return;
         
-        // Optimize video playback settings
+        // Enhanced video playback settings for hardware acceleration
         Object.assign(this.video, {
             loop: false,
             muted: true,
@@ -14,15 +14,20 @@ class VideoPlayer {
             autoplay: true,
             controls: false,
             volume: 0,
-            crossOrigin: 'anonymous'
+            crossOrigin: 'anonymous',
+            // Hardware acceleration hints
+            'webkit-playsinline': true,
+            'x-webkit-airplay': 'allow'
         });
 
-        // Hardware acceleration and performance optimizations
+        // Advanced hardware acceleration and performance optimizations
         this.video.style.cssText = `
             width: 100%;
             height: 100%;
             object-fit: contain;
+            transform: translateZ(0);
             transform: translate3d(0,0,0);
+            -webkit-transform: translateZ(0);
             -webkit-transform: translate3d(0,0,0);
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
@@ -31,6 +36,24 @@ class VideoPlayer {
             will-change: transform;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        `;
+
+        // Force GPU acceleration on the container
+        document.body.style.cssText = `
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000;
+            -webkit-perspective: 1000;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            background: black;
         `;
         
         this.playlist = [];
@@ -47,6 +70,15 @@ class VideoPlayer {
         const loader = document.getElementById('loader');
         if (loader) loader.remove();
         
+        // Preload next video
+        this.nextVideo = document.createElement('video');
+        Object.assign(this.nextVideo, {
+            muted: true,
+            preload: 'auto',
+            style: 'display: none;'
+        });
+        document.body.appendChild(this.nextVideo);
+        
         this.setupEventListeners();
         this.loadVideos();
         
@@ -57,6 +89,7 @@ class VideoPlayer {
     }
     
     setupEventListeners() {
+        // Optimized event listeners with passive flag
         this.video.addEventListener('ended', () => this.playNext(), { passive: true });
         this.video.addEventListener('error', () => this.handleError(), { passive: true });
         this.video.addEventListener('stalled', () => this.handleError(), { passive: true });
@@ -88,6 +121,7 @@ class VideoPlayer {
         this.isPlaying = true;
         this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         const video = this.playlist[this.currentIndex];
+        const nextVideo = this.playlist[(this.currentIndex + 1) % this.playlist.length];
         
         if (!video?.url) {
             this.isPlaying = false;
@@ -99,7 +133,7 @@ class VideoPlayer {
             const checkResponse = await fetch(`/raspberry-files/check-video.php?filename=${video.filename}`);
             const checkResult = await checkResponse.json();
             
-            // Clean up current video
+            // Clean up current video with optimized cleanup
             this.video.pause();
             this.video.removeAttribute('src');
             this.video.load();
@@ -110,6 +144,17 @@ class VideoPlayer {
                 video.url;
                 
             console.log('Playing video:', videoUrl, 'Local:', checkResult.exists);
+            
+            // Preload next video
+            if (nextVideo) {
+                const nextCheckResponse = await fetch(`/raspberry-files/check-video.php?filename=${nextVideo.filename}`);
+                const nextCheckResult = await nextCheckResponse.json();
+                const nextVideoUrl = nextCheckResult.exists ? 
+                    `${this.videoDir}${nextVideo.filename}` : 
+                    nextVideo.url;
+                this.nextVideo.src = nextVideoUrl;
+            }
+            
             this.video.src = videoUrl;
             
             // Reset retry count on successful play
