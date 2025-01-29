@@ -2,12 +2,19 @@
 <html>
 <head>
     <title>Kiosk Video Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
             margin: 0;
             padding: 0;
             background: black;
             overflow: hidden;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000;
+            -webkit-perspective: 1000;
         }
         video {
             width: 100vw;
@@ -16,82 +23,55 @@
             position: fixed;
             top: 0;
             left: 0;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            transform: translate3d(0,0,0);
+            -webkit-transform: translate3d(0,0,0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000;
+            -webkit-perspective: 1000;
+            will-change: transform;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+        #status {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            opacity: 0.5;
+            z-index: 1000;
+            display: none;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <video id="videoPlayer" 
+    <div id="status"></div>
+    <video id="video" 
         autoplay 
         muted 
         playsinline 
         webkit-playsinline
         x-webkit-airplay="allow"
         preload="auto"
-        controlsList="nodownload"
-        disablePictureInPicture>
+        controlsList="nodownload nofullscreen noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback>
         Your browser does not support the video element.
     </video>
 
+    <script src="player.js"></script>
     <script>
-        const videoPlayer = document.getElementById('videoPlayer');
-        let currentVideoIndex = 0;
-        let videos = [];
-        
-        // Function to load video list
-        async function loadVideos() {
-            try {
-                const response = await fetch('/raspberry-files/list-videos.php');
-                videos = await response.json();
-                console.log('Videos loaded:', videos);
-                if (videos.length > 0 && !videoPlayer.src) {
-                    // Only start playing if no video is currently playing
-                    playNextVideo();
-                }
-            } catch (error) {
-                console.error('Error loading videos:', error);
-                setTimeout(loadVideos, 5000);
-            }
+        // Initialize player when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => new VideoPlayer());
+        } else {
+            new VideoPlayer();
         }
-
-        // Function to play next video
-        function playNextVideo() {
-            if (videos.length === 0) {
-                setTimeout(loadVideos, 5000);
-                return;
-            }
-
-            const videoFile = videos[currentVideoIndex];
-            const videoUrl = `/kiosk/videos/${videoFile}`;
-            console.log('Playing video:', videoUrl);
-
-            videoPlayer.src = videoUrl;
-            videoPlayer.play().catch(error => {
-                console.error('Error playing video:', error);
-                setTimeout(() => playNextVideo(), 1000);
-            });
-
-            currentVideoIndex = (currentVideoIndex + 1) % videos.length;
-        }
-
-        // Video optimization settings
-        videoPlayer.addEventListener('loadedmetadata', () => {
-            videoPlayer.playbackRate = 1.0;
-        });
-
-        videoPlayer.addEventListener('ended', playNextVideo);
-        videoPlayer.addEventListener('error', () => {
-            console.error('Video error:', videoPlayer.error);
-            setTimeout(() => playNextVideo(), 1000);
-        });
-
-        // Start playing
-        loadVideos();
-
-        // Refresh video list every 5 minutes
-        setInterval(loadVideos, 300000);
-
-        // Reload page every 6 hours to prevent any memory issues
-        setTimeout(() => window.location.reload(), 21600000);
     </script>
 </body>
 </html>
