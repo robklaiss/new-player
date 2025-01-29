@@ -102,11 +102,25 @@ class VideoPlayer {
     }
 
     handleError() {
-        console.error('Video error:', this.video.error);
+        const errorDetails = {
+            code: this.video.error?.code,
+            message: this.video.error?.message,
+            currentSrc: this.video.currentSrc,
+            networkState: this.video.networkState,
+            readyState: this.video.readyState
+        };
+        console.error('Video error details:', errorDetails);
+        
+        // Update status display with error
+        this.status.textContent = `Error: ${errorDetails.message || 'Unknown error'}`;
+        this.status.style.display = 'block';
+        
         if (this.retryCount < this.maxRetries) {
             this.retryCount++;
-            setTimeout(() => this.playNext(), 1000);
+            console.log(`Retry attempt ${this.retryCount}/${this.maxRetries}`);
+            setTimeout(() => this.playNext(), 2000 * this.retryCount); // Increasing delay with each retry
         } else {
+            console.log('Max retries reached, reloading playlist');
             this.retryCount = 0;
             this.loadVideos();
         }
@@ -179,28 +193,40 @@ class VideoPlayer {
     async loadVideos() {
         try {
             console.log('Fetching videos from:', this.remoteVideoUrl);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            
             const response = await fetch(this.remoteVideoUrl, {
                 headers: { 
                     'Accept': 'application/json',
                     'Cache-Control': 'no-cache'
-                }
+                },
+                signal: controller.signal
             });
             
-            if (!response.ok) throw new Error('Failed to fetch videos');
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const data = await response.json();
             console.log('Received video data:', data);
             
-            if (data.content?.videos?.length > 0) {
-                const videos = Array.isArray(data.content.videos) ? 
-                    data.content.videos : [data.content.videos];
-                    
-                console.log('Processing videos:', videos);
-                await this.downloadVideos(videos);
-                this.updatePlaylist(videos);
-            } else {
-                throw new Error('No videos in response');
+            if (!data?.content?.videos) {
+                throw new Error('Invalid video data format');
             }
+            
+            const videos = Array.isArray(data.content.videos) ? 
+                data.content.videos : [data.content.videos];
+                
+            if (videos.length === 0) {
+                throw new Error('No videos available');
+            }
+                
+            console.log('Processing videos:', videos);
+            await this.downloadVideos(videos);
+            this.updatePlaylist(videos);
         } catch (error) {
             console.error('Error loading videos:', error);
             setTimeout(() => this.loadVideos(), 5000);
