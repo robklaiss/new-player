@@ -133,21 +133,32 @@ class VideoPlayer {
 
     async loadVideos() {
         try {
+            console.log('Fetching videos from:', this.remoteVideoUrl);
             const response = await fetch(this.remoteVideoUrl, {
                 headers: { 'Accept': 'application/json' }
             });
             
-            if (!response.ok) throw new Error();
+            if (!response.ok) {
+                console.error('Failed to fetch videos:', response.status, response.statusText);
+                throw new Error();
+            }
             
             const data = await response.json();
+            console.log('Received video data:', data);
+            
             if (data.content?.videos?.length > 0) {
                 const videos = Array.isArray(data.content.videos) ? 
                     data.content.videos : [data.content.videos];
+                console.log('Processing videos:', videos);
                 await this.downloadVideos(videos);
                 this.updatePlaylist(videos);
+            } else {
+                console.warn('No videos found in response');
             }
-        } catch {
+        } catch (error) {
+            console.error('Error loading videos:', error);
             const filename = 'verano-pile-opt-ok.mp4';
+            console.log('Falling back to default video:', filename);
             this.updatePlaylist([{
                 filename: filename,
                 url: 'https://vinculo.com.py/new-player/videos/' + filename,
@@ -156,35 +167,51 @@ class VideoPlayer {
         }
     }
 
-    updatePlaylist(videos) {
-        const newVideos = JSON.stringify(videos);
-        if (JSON.stringify(this.playlist) !== newVideos) {
-            this.playlist = videos;
-            if (!this.isPlaying) this.playNext();
-        }
-    }
-
     async downloadVideos(videos) {
         for (const video of videos) {
             try {
-                // Check if already exists
+                console.log('Checking video:', video.filename);
                 const checkResponse = await fetch(`/raspberry-files/check-video.php?filename=${video.filename}`);
                 const checkResult = await checkResponse.json();
+                console.log('Check result:', checkResult);
                 
                 if (!checkResult.exists) {
+                    console.log('Downloading video:', video.url);
                     const response = await fetch(video.url, { method: 'GET' });
-                    if (!response.ok) continue;
+                    if (!response.ok) {
+                        console.error('Failed to download video:', response.status, response.statusText);
+                        continue;
+                    }
                     
                     const blob = await response.blob();
                     const formData = new FormData();
                     formData.append('video', blob, video.filename);
                     
-                    await fetch(this.saveVideoPath, {
+                    console.log('Saving video:', video.filename);
+                    const saveResponse = await fetch(this.saveVideoPath, {
                         method: 'POST',
                         body: formData
                     });
+                    
+                    if (!saveResponse.ok) {
+                        console.error('Failed to save video:', saveResponse.status, saveResponse.statusText);
+                    } else {
+                        console.log('Video saved successfully:', video.filename);
+                    }
+                } else {
+                    console.log('Video already exists locally:', video.filename);
                 }
-            } catch {}
+            } catch (error) {
+                console.error('Error processing video:', video.filename, error);
+            }
+        }
+    }
+
+    updatePlaylist(videos) {
+        const newVideos = JSON.stringify(videos);
+        if (JSON.stringify(this.playlist) !== newVideos) {
+            this.playlist = videos;
+            if (!this.isPlaying) this.playNext();
         }
     }
 }
