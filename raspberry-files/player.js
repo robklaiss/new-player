@@ -5,54 +5,41 @@ class VideoPlayer {
         
         if (!this.video) return;
         
-        // Set optimal video constraints
+        // Optimize video playback settings
         Object.assign(this.video, {
             loop: false,
             muted: true,
             playsInline: true,
-            preload: 'metadata',
-            autoplay: false,
+            preload: 'auto',  // Changed from metadata to auto
+            autoplay: true,   // Enable autoplay
             controls: false,
-            volume: 0
+            volume: 0,
+            crossOrigin: 'anonymous'
         });
 
-        // Set video quality constraints
+        // Hardware acceleration and performance optimizations
         this.video.style.cssText = `
             width: 100%;
             height: 100%;
             object-fit: contain;
-            transform: translateZ(0);
-            -webkit-transform: translateZ(0);
-            image-rendering: optimizespeed;
-            max-width: 1280px;
-            max-height: 720px;
+            transform: translate3d(0,0,0);
+            -webkit-transform: translate3d(0,0,0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000;
+            -webkit-perspective: 1000;
+            will-change: transform;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         `;
-        
-        // Force lower quality playback
-        if ('mediaSource' in window) {
-            this.video.addEventListener('loadedmetadata', () => {
-                const track = this.video.videoTracks?.[0];
-                if (track) {
-                    // Limit FPS and resolution if possible
-                    if (track.getSettings) {
-                        const settings = track.getSettings();
-                        if (settings.frameRate > 30) {
-                            track.applyConstraints({
-                                frameRate: 30,
-                                width: { max: 1280 },
-                                height: { max: 720 }
-                            }).catch(() => {});
-                        }
-                    }
-                }
-            });
-        }
         
         this.playlist = [];
         this.currentIndex = -1;
         this.isPlaying = false;
+        this.retryCount = 0;
+        this.maxRetries = 3;
         
-        this.videoDir = '/var/www/kiosk/videos/';
+        this.videoDir = '/kiosk/videos/';  // Changed to match Apache alias
         this.saveVideoPath = '/raspberry-files/save-video.php';
         this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
         
@@ -63,31 +50,52 @@ class VideoPlayer {
         this.setupEventListeners();
         this.loadVideos();
         
-        // Check for new videos every 2 hours
+        // Check for new videos more frequently (every 30 minutes)
         setInterval(() => {
             if (!document.hidden) this.loadVideos();
-        }, 7200000);
+        }, 1800000);
+        
+        // Memory management
+        setInterval(() => {
+            if (window.gc) window.gc();
+        }, 300000);
     }
     
     setupEventListeners() {
-        const handler = (event) => {
-            if (!this.isPlaying) {
-                switch(event.type) {
-                    case 'ended':
-                    case 'error':
-                        this.playNext();
-                        break;
-                }
+        // Handle video events
+        this.video.addEventListener('ended', () => this.playNext(), { passive: true });
+        this.video.addEventListener('error', () => this.handleError(), { passive: true });
+        this.video.addEventListener('stalled', () => this.handleError(), { passive: true });
+        this.video.addEventListener('waiting', () => {
+            if (this.video.readyState < 3) {  // HAVE_FUTURE_DATA
+                setTimeout(() => this.handleError(), 5000);  // Wait 5s before retry
             }
-        };
+        }, { passive: true });
         
-        ['ended', 'error'].forEach(event => {
-            this.video.addEventListener(event, handler, { passive: true });
-        });
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !this.isPlaying) {
+                this.playNext();
+            }
+        }, { passive: true });
+    }
+
+    handleError() {
+        console.error('Video error:', this.video.error);
+        if (this.retryCount < this.maxRetries) {
+            this.retryCount++;
+            setTimeout(() => this.playNext(), 1000);
+        } else {
+            this.retryCount = 0;
+            this.loadVideos();  // Reload playlist on persistent errors
+        }
     }
 
     async playNext() {
-        if (!this.playlist.length) return;
+        if (!this.playlist.length) {
+            await this.loadVideos();
+            return;
+        }
         
         this.isPlaying = true;
         this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
@@ -105,29 +113,39 @@ class VideoPlayer {
             
             // Clean up current video
             this.video.pause();
-            this.video.src = '';
+            this.video.removeAttribute('src');
             this.video.load();
             
-            // Force GC if available
+            // Force memory cleanup
             if (window.gc) window.gc();
             
             // Small delay for cleanup
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 100));
             
             // Set video source
-            this.video.src = checkResult.exists ? 
+            const videoUrl = checkResult.exists ? 
                 `${this.videoDir}${video.filename}` : 
                 video.url;
+                
+            console.log('Playing video:', videoUrl, 'Local:', checkResult.exists);
+            this.video.src = videoUrl;
             
-            // Play with quality constraints
-            await this.video.play();
-            
-            // Set playback rate to reduce CPU usage
-            this.video.playbackRate = 1.0;
+            // Reset retry count on successful play
+            this.video.play().then(() => {
+                this.retryCount = 0;
+                this.status.textContent = video.filename;
+                this.status.style.display = 'block';
+                setTimeout(() => {
+                    this.status.style.display = 'none';
+                }, 3000);
+            }).catch(error => {
+                console.error('Play error:', error);
+                this.handleError();
+            });
             
         } catch (error) {
-            this.isPlaying = false;
-            setTimeout(() => this.playNext(), 1000);
+            console.error('Playback error:', error);
+            this.handleError();
         }
     }
 
@@ -135,13 +153,13 @@ class VideoPlayer {
         try {
             console.log('Fetching videos from:', this.remoteVideoUrl);
             const response = await fetch(this.remoteVideoUrl, {
-                headers: { 'Accept': 'application/json' }
+                headers: { 
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
             });
             
-            if (!response.ok) {
-                console.error('Failed to fetch videos:', response.status, response.statusText);
-                throw new Error();
-            }
+            if (!response.ok) throw new Error('Failed to fetch videos');
             
             const data = await response.json();
             console.log('Received video data:', data);
@@ -149,21 +167,27 @@ class VideoPlayer {
             if (data.content?.videos?.length > 0) {
                 const videos = Array.isArray(data.content.videos) ? 
                     data.content.videos : [data.content.videos];
+                    
                 console.log('Processing videos:', videos);
                 await this.downloadVideos(videos);
                 this.updatePlaylist(videos);
             } else {
-                console.warn('No videos found in response');
+                throw new Error('No videos in response');
             }
         } catch (error) {
             console.error('Error loading videos:', error);
-            const filename = 'verano-pile-opt-ok.mp4';
-            console.log('Falling back to default video:', filename);
-            this.updatePlaylist([{
-                filename: filename,
-                url: 'https://vinculo.com.py/new-player/videos/' + filename,
-                type: 'video/mp4'
-            }]);
+            // Don't fall back to default video, retry current playlist instead
+            if (!this.playlist.length) {
+                setTimeout(() => this.loadVideos(), 5000);
+            }
+        }
+    }
+
+    updatePlaylist(videos) {
+        const newVideos = JSON.stringify(videos);
+        if (JSON.stringify(this.playlist) !== newVideos) {
+            this.playlist = videos;
+            if (!this.isPlaying) this.playNext();
         }
     }
 
@@ -173,13 +197,16 @@ class VideoPlayer {
                 console.log('Checking video:', video.filename);
                 const checkResponse = await fetch(`/raspberry-files/check-video.php?filename=${video.filename}`);
                 const checkResult = await checkResponse.json();
-                console.log('Check result:', checkResult);
                 
                 if (!checkResult.exists) {
                     console.log('Downloading video:', video.url);
-                    const response = await fetch(video.url, { method: 'GET' });
+                    const response = await fetch(video.url, { 
+                        method: 'GET',
+                        cache: 'no-cache'
+                    });
+                    
                     if (!response.ok) {
-                        console.error('Failed to download video:', response.status, response.statusText);
+                        console.error('Download failed:', response.status);
                         continue;
                     }
                     
@@ -194,24 +221,16 @@ class VideoPlayer {
                     });
                     
                     if (!saveResponse.ok) {
-                        console.error('Failed to save video:', saveResponse.status, saveResponse.statusText);
-                    } else {
-                        console.log('Video saved successfully:', video.filename);
+                        throw new Error('Save failed: ' + saveResponse.status);
                     }
+                    
+                    console.log('Video saved successfully:', video.filename);
                 } else {
                     console.log('Video already exists locally:', video.filename);
                 }
             } catch (error) {
                 console.error('Error processing video:', video.filename, error);
             }
-        }
-    }
-
-    updatePlaylist(videos) {
-        const newVideos = JSON.stringify(videos);
-        if (JSON.stringify(this.playlist) !== newVideos) {
-            this.playlist = videos;
-            if (!this.isPlaying) this.playNext();
         }
     }
 }
