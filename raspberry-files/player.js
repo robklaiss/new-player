@@ -10,8 +10,8 @@ class VideoPlayer {
             loop: false,
             muted: true,
             playsInline: true,
-            preload: 'auto',  // Changed from metadata to auto
-            autoplay: true,   // Enable autoplay
+            preload: 'auto',
+            autoplay: true,
             controls: false,
             volume: 0,
             crossOrigin: 'anonymous'
@@ -39,7 +39,7 @@ class VideoPlayer {
         this.retryCount = 0;
         this.maxRetries = 3;
         
-        this.videoDir = '/kiosk/videos/';  // Changed to match Apache alias
+        this.videoDir = '/kiosk/videos/';
         this.saveVideoPath = '/raspberry-files/save-video.php';
         this.remoteVideoUrl = 'https://vinculo.com.py/new-player/api/content.php';
         
@@ -50,29 +50,17 @@ class VideoPlayer {
         this.setupEventListeners();
         this.loadVideos();
         
-        // Check for new videos more frequently (every 30 minutes)
+        // Check for new videos every 5 minutes
         setInterval(() => {
             if (!document.hidden) this.loadVideos();
-        }, 1800000);
-        
-        // Memory management
-        setInterval(() => {
-            if (window.gc) window.gc();
         }, 300000);
     }
     
     setupEventListeners() {
-        // Handle video events
         this.video.addEventListener('ended', () => this.playNext(), { passive: true });
         this.video.addEventListener('error', () => this.handleError(), { passive: true });
         this.video.addEventListener('stalled', () => this.handleError(), { passive: true });
-        this.video.addEventListener('waiting', () => {
-            if (this.video.readyState < 3) {  // HAVE_FUTURE_DATA
-                setTimeout(() => this.handleError(), 5000);  // Wait 5s before retry
-            }
-        }, { passive: true });
         
-        // Handle visibility change
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && !this.isPlaying) {
                 this.playNext();
@@ -87,7 +75,7 @@ class VideoPlayer {
             setTimeout(() => this.playNext(), 1000);
         } else {
             this.retryCount = 0;
-            this.loadVideos();  // Reload playlist on persistent errors
+            this.loadVideos();
         }
     }
 
@@ -115,12 +103,6 @@ class VideoPlayer {
             this.video.pause();
             this.video.removeAttribute('src');
             this.video.load();
-            
-            // Force memory cleanup
-            if (window.gc) window.gc();
-            
-            // Small delay for cleanup
-            await new Promise(r => setTimeout(r, 100));
             
             // Set video source
             const videoUrl = checkResult.exists ? 
@@ -176,16 +158,14 @@ class VideoPlayer {
             }
         } catch (error) {
             console.error('Error loading videos:', error);
-            // Don't fall back to default video, retry current playlist instead
-            if (!this.playlist.length) {
-                setTimeout(() => this.loadVideos(), 5000);
-            }
+            setTimeout(() => this.loadVideos(), 5000);
         }
     }
 
     updatePlaylist(videos) {
         const newVideos = JSON.stringify(videos);
         if (JSON.stringify(this.playlist) !== newVideos) {
+            console.log('Updating playlist with new videos');
             this.playlist = videos;
             if (!this.isPlaying) this.playNext();
         }
@@ -194,42 +174,38 @@ class VideoPlayer {
     async downloadVideos(videos) {
         for (const video of videos) {
             try {
-                console.log('Checking video:', video.filename);
+                // Check if video exists locally
                 const checkResponse = await fetch(`/raspberry-files/check-video.php?filename=${video.filename}`);
                 const checkResult = await checkResponse.json();
                 
                 if (!checkResult.exists) {
-                    console.log('Downloading video:', video.url);
-                    const response = await fetch(video.url, { 
-                        method: 'GET',
-                        cache: 'no-cache'
-                    });
+                    console.log('Downloading new video:', video.filename);
+                    const response = await fetch(video.url);
                     
                     if (!response.ok) {
-                        console.error('Download failed:', response.status);
-                        continue;
+                        throw new Error(`Failed to download video: ${response.status}`);
                     }
                     
                     const blob = await response.blob();
                     const formData = new FormData();
-                    formData.append('video', blob, video.filename);
+                    formData.append('video', new File([blob], video.filename, { type: video.type }));
                     
-                    console.log('Saving video:', video.filename);
                     const saveResponse = await fetch(this.saveVideoPath, {
                         method: 'POST',
                         body: formData
                     });
                     
                     if (!saveResponse.ok) {
-                        throw new Error('Save failed: ' + saveResponse.status);
+                        const error = await saveResponse.text();
+                        throw new Error(`Failed to save video: ${error}`);
                     }
                     
-                    console.log('Video saved successfully:', video.filename);
+                    console.log('Video downloaded and saved:', video.filename);
                 } else {
                     console.log('Video already exists locally:', video.filename);
                 }
             } catch (error) {
-                console.error('Error processing video:', video.filename, error);
+                console.error('Error downloading video:', video.filename, error);
             }
         }
     }
@@ -237,7 +213,7 @@ class VideoPlayer {
 
 // Start player
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new VideoPlayer(), { passive: true });
+    document.addEventListener('DOMContentLoaded', () => new VideoPlayer());
 } else {
     new VideoPlayer();
 }
