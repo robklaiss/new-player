@@ -5,12 +5,19 @@ class VideoPlayer {
         
         if (!this.video) return;
         
+        // Memory optimization: Clear source buffer when video is not playing
+        this.video.addEventListener('pause', () => {
+            if (this.video.src) {
+                URL.revokeObjectURL(this.video.src);
+            }
+        }, { passive: true });
+        
         // Enhanced video playback settings for hardware acceleration
         Object.assign(this.video, {
             loop: false,
             muted: true,
             playsInline: true,
-            preload: 'auto',
+            preload: 'metadata', // Changed from 'auto' to reduce memory usage
             autoplay: true,
             controls: false,
             volume: 0,
@@ -61,6 +68,8 @@ class VideoPlayer {
         this.isPlaying = false;
         this.retryCount = 0;
         this.maxRetries = 3;
+        this.lastMemoryCheck = Date.now();
+        this.memoryWarningThreshold = 200 * 1024 * 1024; // 200MB
         
         this.videoDir = '/kiosk/videos/';
         this.saveVideoPath = '/raspberry-files/save-video.php';
@@ -70,11 +79,11 @@ class VideoPlayer {
         const loader = document.getElementById('loader');
         if (loader) loader.remove();
         
-        // Preload next video
+        // Memory-optimized preload
         this.nextVideo = document.createElement('video');
         Object.assign(this.nextVideo, {
             muted: true,
-            preload: 'auto',
+            preload: 'metadata',
             style: 'display: none;'
         });
         document.body.appendChild(this.nextVideo);
@@ -82,12 +91,32 @@ class VideoPlayer {
         this.setupEventListeners();
         this.loadVideos();
         
-        // Check for new videos every 5 minutes
+        // Performance monitoring
+        setInterval(() => this.checkPerformance(), 60000); // Check every minute
+        
+        // Reduced check interval to hourly to minimize resource usage
         setInterval(() => {
             if (!document.hidden) this.loadVideos();
-        }, 300000);
+        }, 3600000); // 1 hour
     }
     
+    async checkPerformance() {
+        if (window.performance && window.performance.memory) {
+            const memory = window.performance.memory;
+            if (memory.usedJSHeapSize > this.memoryWarningThreshold) {
+                console.warn('High memory usage detected:', 
+                    Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB');
+                // Force garbage collection hint
+                this.playlist = [...this.playlist];
+                if (this.nextVideo.src) {
+                    URL.revokeObjectURL(this.nextVideo.src);
+                    this.nextVideo.removeAttribute('src');
+                    this.nextVideo.load();
+                }
+            }
+        }
+    }
+
     setupEventListeners() {
         // Optimized event listeners with passive flag
         this.video.addEventListener('ended', () => this.playNext(), { passive: true });
